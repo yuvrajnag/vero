@@ -256,7 +256,7 @@ const FileUpload = ({ label, required, value, onChange, error }: any) => {
 };
 
 // --- MAIN COMPONENT ---
-export default function CompanyOnboarding() {
+export default function CompanyOnboarding({ onComplete }: { onComplete: () => void }) {
   const [stage, setStage] = useState(1);
   const totalStages = 5;
 
@@ -287,6 +287,7 @@ export default function CompanyOnboarding() {
 
   const onSubmit = (data: FormData) => {
     console.log("Company Form Submitted Successfully:", data);
+    onComplete();
   };
 
   const variants = {

@@ -5,12 +5,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Building2, User, ArrowLeft } from "lucide-react";
 import WorkerOnboarding from "@/components/setup/WorkerOnboarding";
 import CompanyOnboarding from "@/components/setup/CompanyOnboarding";
+import FileScanner from "@/components/setup/FileScanner";
+
+import { useRouter } from "next/navigation";
 
 export default function SetupPage() {
+  const router = useRouter();
   const [progress, setProgress] = useState(0);
   const [isDone, setIsDone] = useState(false);
   const [showCircle, setShowCircle] = useState(false);
   const [selected, setSelected] = useState<"work" | "hire" | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
   const [proceeded, setProceeded] = useState(false);
 
   useEffect(() => {
@@ -31,6 +36,11 @@ export default function SetupPage() {
     return () => clearInterval(timer);
   }, []);
 
+  const handleComplete = () => {
+    setIsScanning(true);
+  };
+
+
   const titleText = "INITIALIZING YOUR WORKSPACE";
 
   const content = {
@@ -47,16 +57,15 @@ export default function SetupPage() {
   return (
     <div className="flex h-screen w-screen flex-col items-center justify-center bg-black selection:bg-white selection:text-black antialiased font-sans overflow-hidden text-white">
       
-      {/* Top Navbar (Appears after proceeding) */}
       <AnimatePresence>
-        {proceeded && (
+        {(proceeded || isScanning) && (
           <motion.div 
             key="top-nav"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
             transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
-            className="absolute top-0 left-0 w-full px-12 pt-8 pb-4 flex justify-between items-center z-50 pointer-events-auto"
+            className="absolute top-0 left-0 w-full px-12 pt-8 pb-4 flex justify-between items-center z-[60] pointer-events-auto"
           >
             {/* Vero Text (Top Left) */}
             <div className="text-2xl font-black tracking-widest text-white">
@@ -66,17 +75,44 @@ export default function SetupPage() {
         )}
       </AnimatePresence>
 
+
+      {/* File Scanner Animation */}
+      <AnimatePresence mode="wait">
+        {isScanning && (
+          <motion.div
+            key="file-scanner"
+            initial={{ opacity: 0, filter: "blur(20px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(20px)" }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black"
+          >
+            <div className="w-full h-full">
+              <FileScanner 
+                type={selected || "work"} 
+                onComplete={() => {
+                  if (selected === "work") {
+                    router.push("/dashboard/worker");
+                  } else if (selected === "hire") {
+                    router.push("/dashboard/company");
+                  }
+                }} 
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Worker Onboarding Flow */}
       <AnimatePresence>
-        {proceeded && selected === "work" && (
-          <WorkerOnboarding key="worker-onboarding" />
+        {proceeded && selected === "work" && !isScanning && (
+          <WorkerOnboarding key="worker-onboarding" onComplete={handleComplete} />
         )}
       </AnimatePresence>
 
       {/* Company / Hire Onboarding Flow */}
       <AnimatePresence>
-        {proceeded && selected === "hire" && (
-          <CompanyOnboarding key="company-onboarding" />
+        {proceeded && selected === "hire" && !isScanning && (
+          <CompanyOnboarding key="company-onboarding" onComplete={handleComplete} />
         )}
       </AnimatePresence>
 

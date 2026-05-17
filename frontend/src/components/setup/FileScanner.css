@@ -1,0 +1,180 @@
+#dup-scanning-files {
+  --scanner-color: rgb(255, 255, 255);
+  --corner-border-width: 3px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: transparent;
+}
+
+.scanning-wrapper {
+  width: 500px;
+  height: 15rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.top-corners,
+.bottom-corners {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3rem;
+}
+
+.top-corners::before,
+.top-corners::after,
+.bottom-corners::before,
+.bottom-corners::after {
+  height: 3rem;
+  width: 3rem;
+  border: 0 solid var(--scanner-color);
+  content: '';
+  position: absolute;
+}
+
+.top-corners::before {
+  top: 0;
+  left: 0;
+  border-top-width: var(--corner-border-width);
+  border-left-width: var(--corner-border-width);
+}
+
+.top-corners::after {
+  top: 0;
+  right: 0;
+  border-top-width: var(--corner-border-width);
+  border-right-width: var(--corner-border-width);
+}
+
+.bottom-corners {
+  top: unset;
+  bottom: 0;
+}
+
+.bottom-corners::before {
+  bottom: 0;
+  left: 0;
+  border-bottom-width: var(--corner-border-width);
+  border-left-width: var(--corner-border-width);
+}
+
+.bottom-corners::after {
+  bottom: 0;
+  right: 0;
+  border-bottom-width: var(--corner-border-width);
+  border-right-width: var(--corner-border-width);
+}
+
+.scanner {
+  height: 80%;
+  width: 2px;
+  background-color: var(--scanner-color);
+  position: absolute;
+  left: 10%;
+  /* 3.5s / 2 = 1.75s per full scan cycle (back and forth) */
+  animation: scan-move 1.75s cubic-bezier(0.46, 0.55, 0.59, 0.95) infinite;
+  box-shadow: 0 0 15px var(--scanner-color);
+  z-index: 10;
+}
+
+.scanner::before,
+.scanner::after {
+  content: '';
+  width: 0px;
+  height: 100%;
+  top: 0;
+  position: absolute;
+}
+
+.scanner::before {
+  right: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+  animation: scan-tail-left 1.75s cubic-bezier(0.46, 0.55, 0.59, 0.95) infinite;
+}
+
+.scanner::after {
+  left: 100%;
+  background: linear-gradient(270deg, transparent, rgba(255, 255, 255, 0.3));
+  animation: scan-tail-right 1.75s cubic-bezier(0.46, 0.55, 0.59, 0.95) infinite 0.875s;
+}
+
+.file-types {
+  height: 100%;
+  width: 200px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.file-types-carousel {
+  font-size: 8rem;
+  height: 1em;
+  width: 1em;
+  overflow: hidden;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: scan-file-scale 3.5s infinite;
+}
+
+.sync-scanner {
+  display: flex;
+  flex-direction: column;
+  animation: scan-file-translate-sync 35s steps(10) infinite 0s;
+}
+
+.file-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  padding: 0.15em;
+}
+
+@keyframes scan-file-translate-sync {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-10em); }
+}
+
+@keyframes scan-file-scale {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.5);
+    filter: blur(15px);
+  }
+  10%, 60% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    filter: blur(0px);
+  }
+  85%, 100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.7);
+    filter: blur(8px);
+  }
+}
+
+@keyframes scan-move {
+  0% { left: 5%; }
+  50% { left: 95%; }
+  100% { left: 5%; }
+}
+
+@keyframes scan-tail-left {
+  0% { width: 0%; }
+  25% { width: 300%; }
+  50%, 100% { width: 0%; }
+}
+
+@keyframes scan-tail-right {
+  0% { width: 0%; }
+  25% { width: 300%; }
+  50%, 100% { width: 0%; }
+}
