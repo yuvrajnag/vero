@@ -46,11 +46,11 @@ export default function SetupPage() {
   const content = {
     work: {
       heading: "Get matched with the right opportunities.",
-      subtext: "Showcase your skills, availability, and experience while Vero connects you with high-value projects in real time."
+      subtext: "Showcase your skills, availability, and experience while Vero connects you with high-value commercial service operations in real time."
     },
     hire: {
       heading: "Build your workforce with precision.",
-      subtext: "Create job requirements, discover verified professionals, and let Vero intelligently match the best talent for every task."
+      subtext: "Create workforce allocation requests, discover verified technicians, and let Vero intelligently match the best professionals for every task."
     }
   };
 

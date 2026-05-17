@@ -357,20 +357,20 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
                   <h2 className="text-2xl font-bold text-white mb-1">Tell us what you do.</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                  <Input label="Primary Role" placeholder="e.g. Lead Technician" required register={register("role")} error={errors.role?.message} />
-                  <Input label="Industry Category" placeholder="e.g. Construction" required register={register("industry")} error={errors.industry?.message} />
+                  <Input label="Primary Role" placeholder="e.g. HVAC Technician, Electrician" required register={register("role")} error={errors.role?.message} />
+                  <Input label="Industry Category" placeholder="e.g. Facility Maintenance & Field Services" required register={register("industry")} error={errors.industry?.message} />
                   <div className="col-span-2">
                     <Controller name="skills" control={control} render={({ field }) => (
-                      <TagsInput label="Skills / Expertise" placeholder="Type and press enter..." required value={field.value} onChange={field.onChange} error={errors.skills?.message} />
+                      <TagsInput label="Skills / Expertise" placeholder="e.g. AC Installation, Industrial Wiring, Piping (press enter)..." required value={field.value} onChange={field.onChange} error={errors.skills?.message} />
                     )} />
                   </div>
                   <NumberInput label="Years of Experience" placeholder="e.g. 5" required register={register("experience")} error={errors.experience?.message} />
                   <Controller name="workType" control={control} render={({ field }) => (
-                    <MultiSelectChips label="Preferred Work Type" options={["Full-time", "Part-time", "Contract", "Freelance"]} required value={field.value} onChange={field.onChange} error={errors.workType?.message} />
+                    <MultiSelectChips label="Preferred Work Type" options={["Full-time", "Part-time", "Contract", "On-call / Gig"]} required value={field.value} onChange={field.onChange} error={errors.workType?.message} />
                   )} />
                   <div className="col-span-2">
                     <Controller name="languages" control={control} render={({ field }) => (
-                      <TagsInput label="Languages Spoken" placeholder="English, Spanish..." required value={field.value} onChange={field.onChange} error={errors.languages?.message} />
+                      <TagsInput label="Languages Spoken" placeholder="English, Hindi, Spanish..." required value={field.value} onChange={field.onChange} error={errors.languages?.message} />
                     )} />
                   </div>
                 </div>
@@ -424,21 +424,21 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
                   <h2 className="text-2xl font-bold text-white mb-1">Showcase your professional journey.</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                  <Input label="Education" placeholder="Degree, Institution" required register={register("education")} error={errors.education?.message} />
-                  <Input label="Previous Companies" placeholder="Company A, Company B" register={register("companies")} error={errors.companies?.message} />
+                  <Input label="Technical Certification / Education" placeholder="e.g. Diploma in HVAC & Electrical Systems" required register={register("education")} error={errors.education?.message} />
+                  <Input label="Previous Contractors / Employers" placeholder="e.g. Apex Facilities, Beta Maintenance" register={register("companies")} error={errors.companies?.message} />
                   <div className="col-span-2">
-                    <Textarea label="Work History" placeholder="Brief summary of past roles..." required register={register("history")} error={errors.history?.message} />
+                    <Textarea label="Operational Work History" placeholder="Brief summary of past projects, emergency response calls, and service quality ratings..." required register={register("history")} error={errors.history?.message} />
                   </div>
                   <div className="col-span-2">
-                    <Textarea label="Short Bio / About You" placeholder="Introduce yourself..." required register={register("bio")} error={errors.bio?.message} />
+                    <Textarea label="Short Bio / Technical Summary" placeholder="Introduce your field specialization and emergency diagnostic expertise..." required register={register("bio")} error={errors.bio?.message} />
                   </div>
                   <div className="col-span-2">
                     <Controller name="resume" control={control} render={({ field }) => (
-                      <FileUpload label="Resume Upload" value={field.value} onChange={field.onChange} error={errors.resume?.message as string} />
+                      <FileUpload label="Technical Resume / Service Log Upload" value={field.value} onChange={field.onChange} error={errors.resume?.message as string} />
                     )} />
                   </div>
                   <div className="col-span-2">
-                    <Input label="LinkedIn Profile" type="url" placeholder="https://linkedin.com/in/..." register={register("linkedin")} error={errors.linkedin?.message} />
+                    <Input label="Professional Network Link (LinkedIn)" type="url" placeholder="https://linkedin.com/in/..." register={register("linkedin")} error={errors.linkedin?.message} />
                   </div>
                 </div>
               </motion.div>
@@ -451,24 +451,24 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                   <div className="col-span-2 grid grid-cols-3 gap-4">
-                    <Controller name="certificates" control={control} render={({ field }) => <FileUpload label="Certificates" value={field.value} onChange={field.onChange} />} />
-                    <Controller name="licenses" control={control} render={({ field }) => <FileUpload label="Licenses" value={field.value} onChange={field.onChange} />} />
+                    <Controller name="certificates" control={control} render={({ field }) => <FileUpload label="Safety Certificates" value={field.value} onChange={field.onChange} />} />
+                    <Controller name="licenses" control={control} render={({ field }) => <FileUpload label="Operational Licenses" value={field.value} onChange={field.onChange} />} />
                     <Controller name="governmentId" control={control} render={({ field }) => <FileUpload label="ID Verification (Govt ID)" required value={field.value} onChange={field.onChange} error={errors.governmentId?.message as string} />} />
                   </div>
                   
                   <div className="col-span-2 pt-4 border-t border-zinc-900 mt-2">
                     <div className="flex justify-between items-center mb-4">
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Optional Links</span>
+                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Verification Registry Links</span>
                       <button type="button" onClick={() => append({ platform: "", url: "" })} className="text-[9px] bg-white text-black px-2 py-1 rounded-full font-bold flex items-center gap-1 hover:scale-105 transition-transform"><Plus size={10} /> Add Link</button>
                     </div>
                     <div className="flex flex-col gap-4 max-h-[120px] overflow-y-auto custom-scrollbar pr-2">
                       {fields.map((item, index) => (
                         <div key={item.id} className="flex gap-4 items-end">
-                          <div className="w-[140px]">
-                            <Input label="Platform" placeholder="e.g. GitHub" required register={register(`links.${index}.platform`)} error={errors.links?.[index]?.platform?.message} />
+                           <div className="w-[140px]">
+                            <Input label="Registry / Platform" placeholder="e.g. CertRegistry" required register={register(`links.${index}.platform`)} error={errors.links?.[index]?.platform?.message} />
                           </div>
                           <div className="flex-1 flex gap-2 items-end">
-                            <Input label="URL" type="url" placeholder="https://..." required register={register(`links.${index}.url`)} error={errors.links?.[index]?.url?.message} />
+                            <Input label="Registry URL" type="url" placeholder="https://..." required register={register(`links.${index}.url`)} error={errors.links?.[index]?.url?.message} />
                             <button type="button" onClick={() => remove(index)} className="mb-1.5 p-1 text-zinc-500 hover:text-red-500 transition-colors"><X size={16} /></button>
                           </div>
                         </div>

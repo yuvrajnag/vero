@@ -119,7 +119,7 @@ export default function CompanyDashboard() {
 
   const matchSteps = [
     "analyzing workforce requirements...",
-    "calculating talent compatibility vectors...",
+    "calculating technician compatibility vectors...",
     "checking global availability registers...",
     "optimizing budget fit index..."
   ];

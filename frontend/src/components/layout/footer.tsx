@@ -48,7 +48,7 @@ export function Footer() {
             <h4 className="text-sm font-semibold tracking-tight">Resources</h4>
             <div className="flex flex-col gap-3 text-sm text-zinc-500">
               <Link href="#" className="hover:text-white transition-colors">Documentation</Link>
-              <Link href="#" className="hover:text-white transition-colors">Developers</Link>
+              <Link href="#" className="hover:text-white transition-colors">Technicians</Link>
               <Link href="#" className="hover:text-white transition-colors">Status</Link>
             </div>
           </div>

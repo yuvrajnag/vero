@@ -368,7 +368,7 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                   <Controller name="industry" control={control} render={({ field }) => (
-                    <CustomSelect label="Industry Type" options={["Technology", "Construction", "Logistics", "Healthcare", "Manufacturing", "Other"]} required value={field.value} onChange={field.onChange} error={errors.industry?.message} />
+                    <CustomSelect label="Industry Type" options={["Field Services & Maintenance", "Construction", "Logistics", "Healthcare", "Manufacturing", "Other"]} required value={field.value} onChange={field.onChange} error={errors.industry?.message} />
                   )} />
                   {industry === "Other" ? (
                     <Input label="Specify Industry" placeholder="e.g. Aerospace" required register={register("otherIndustry")} error={errors.otherIndustry?.message} />
@@ -388,7 +388,7 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                   
                   <div className="col-span-2">
                     <Controller name="businessCategory" control={control} render={({ field }) => (
-                      <TagsInput label="Business Category" placeholder="Type and press enter..." required value={field.value} onChange={field.onChange} error={errors.businessCategory?.message} />
+                      <TagsInput label="Business Category" placeholder="e.g. Electrical Services, HVAC Repair, Plumbing Services (press enter)..." required value={field.value} onChange={field.onChange} error={errors.businessCategory?.message} />
                     )} />
                   </div>
                   
@@ -396,12 +396,12 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                   
                   <div className="col-span-2">
                     <Controller name="regions" control={control} render={({ field }) => (
-                      <TagsInput label="Operating Regions" placeholder="City, State, or Country..." required value={field.value} onChange={field.onChange} error={errors.regions?.message} />
+                      <TagsInput label="Operating Regions" placeholder="e.g. Bangalore South, Hyderabad West, Delhi NCR..." required value={field.value} onChange={field.onChange} error={errors.regions?.message} />
                     )} />
                   </div>
                   
                   <div className="col-span-2">
-                    <Textarea label="About Company" placeholder="Briefly describe your company's mission and operations..." required register={register("about")} error={errors.about?.message} />
+                    <Textarea label="About Company" placeholder="e.g. Leading facility management firm servicing 150+ commercial client networks..." required register={register("about")} error={errors.about?.message} />
                   </div>
                 </div>
               </motion.div>
@@ -415,12 +415,12 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                   <div className="col-span-2">
                     <Controller name="workforceType" control={control} render={({ field }) => (
-                      <MultiSelectChips label="Preferred Workforce Type" options={["Freelancers", "Full-Time", "Contract-Based", "Emergency Workforce"]} required value={field.value} onChange={field.onChange} error={errors.workforceType?.message} />
+                      <MultiSelectChips label="Preferred Workforce Type" options={["Field Technicians", "Full-Time", "Contract-Based", "Emergency Workforce"]} required value={field.value} onChange={field.onChange} error={errors.workforceType?.message} />
                     )} />
                   </div>
                   
                   <Controller name="hiringFreq" control={control} render={({ field }) => (
-                    <CustomSelect label="Hiring Frequency" options={["Daily", "Weekly", "Project-Based", "Permanent"]} required value={field.value} onChange={field.onChange} error={errors.hiringFreq?.message} />
+                    <CustomSelect label="Hiring Frequency" options={["Daily", "Weekly", "Assignment-Based", "Permanent"]} required value={field.value} onChange={field.onChange} error={errors.hiringFreq?.message} />
                   )} />
                   
                   <Controller name="remotePref" control={control} render={({ field }) => (
@@ -441,7 +441,7 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                       )} />
                     </div>
                     <div className="flex-1">
-                      <NumberInput label="Expected Budget per Project/Day" placeholder="0.00" required register={register("budget")} error={errors.budget?.message} />
+                      <NumberInput label="Expected Allocation Budget / Day" placeholder="0.00" required register={register("budget")} error={errors.budget?.message} />
                     </div>
                   </div>
                   
@@ -458,12 +458,12 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                   <h2 className="text-2xl font-bold text-white mb-1">Operations & Management.</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                  <NumberInput label="Current Team Size" placeholder="e.g. 15" required register={register("teamSize")} error={errors.teamSize?.message} />
-                  <NumberInput label="Active Projects" placeholder="e.g. 3" required register={register("activeProjects")} error={errors.activeProjects?.message} />
+                  <NumberInput label="Current Workforce Size" placeholder="e.g. 15" required register={register("teamSize")} error={errors.teamSize?.message} />
+                  <NumberInput label="Active Assignments" placeholder="e.g. 3" required register={register("activeProjects")} error={errors.activeProjects?.message} />
                   
                   <div className="col-span-2">
                     <Controller name="workforceGoals" control={control} render={({ field }) => (
-                      <TagsInput label="Workforce Management Goals" placeholder="Scale team, Reduce overhead..." required value={field.value} onChange={field.onChange} error={errors.workforceGoals?.message} />
+                      <TagsInput label="Workforce Management Goals" placeholder="e.g. Scale technical workforce, Reduce emergency response overhead..." required value={field.value} onChange={field.onChange} error={errors.workforceGoals?.message} />
                     )} />
                   </div>
 
@@ -498,7 +498,7 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
                     <Controller name="registration" control={control} render={({ field }) => <FileUpload label="Business Registration" required value={field.value} onChange={field.onChange} error={errors.registration?.message as string} />} />
                     <Controller name="taxDocs" control={control} render={({ field }) => <FileUpload label="Tax / Compliance Documents" required value={field.value} onChange={field.onChange} error={errors.taxDocs?.message as string} />} />
                     <Controller name="identity" control={control} render={({ field }) => <FileUpload label="Identity Verification" required value={field.value} onChange={field.onChange} error={errors.identity?.message as string} />} />
-                    <Controller name="portfolio" control={control} render={({ field }) => <FileUpload label="Company Portfolio / Case Studies" value={field.value} onChange={field.onChange} error={errors.portfolio?.message as string} />} />
+                    <Controller name="portfolio" control={control} render={({ field }) => <FileUpload label="Company Profile / Service Logs" value={field.value} onChange={field.onChange} error={errors.portfolio?.message as string} />} />
                   </div>
                   
                   <div className="col-span-2">
@@ -507,14 +507,14 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
 
                   <div className="col-span-2 pt-4 border-t border-zinc-900 mt-2">
                     <div className="flex justify-between items-center mb-4">
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Dynamic Links</span>
+                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">Verification / Registry Links</span>
                       <button type="button" onClick={() => append({ platform: "", url: "" })} className="text-[9px] bg-white text-black px-2 py-1 rounded-full font-bold flex items-center gap-1 hover:scale-105 transition-transform"><Plus size={10} /> Add Link</button>
                     </div>
                     <div className="flex flex-col gap-4 max-h-[120px] overflow-y-auto custom-scrollbar pr-2">
                       {fields.map((item, index) => (
                         <div key={item.id} className="flex gap-4 items-end">
                           <div className="w-[140px]">
-                            <Input label="Link Title" placeholder="e.g. GitHub" required register={register(`links.${index}.platform`)} error={errors.links?.[index]?.platform?.message} />
+                            <Input label="Link Title" placeholder="e.g. CertRegistry" required register={register(`links.${index}.platform`)} error={errors.links?.[index]?.platform?.message} />
                           </div>
                           <div className="flex-1 flex gap-2 items-end">
                             <Input label="URL" type="url" placeholder="https://..." required register={register(`links.${index}.url`)} error={errors.links?.[index]?.url?.message} />

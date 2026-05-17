@@ -576,7 +576,7 @@ export default function WorkerDashboard() {
                     </div>
                     <h5 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">No active assignments</h5>
                     <p className="text-xs md:text-sm text-zinc-500 leading-relaxed max-w-lg mt-4">
-                      Accepted projects, active workforce operations, and assignment progress will appear here.
+                      Accepted tasks, active workforce operations, and assignment progress will appear here.
                     </p>
                   </div>
                 )}

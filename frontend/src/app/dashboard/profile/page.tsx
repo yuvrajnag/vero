@@ -13,7 +13,7 @@ import WorkerOnboarding from "@/components/setup/WorkerOnboarding";
 
 // Custom Icon Components for Tab Consistency
 const ProfileIcon = User;
-const ProjectsIcon = Code2;
+const ProjectsIcon = Briefcase;
 const TestimonialsIcon = MessageSquare;
 const SettingsIcon = Settings;
 
@@ -21,33 +21,33 @@ const SettingsIcon = Settings;
 const MOCK_PROFILE = {
   fullName: "Yuvraj Nag",
   id: "V-99371",
-  role: "Senior AI Integration Architect",
+  role: "Senior HVAC & Refrigeration Specialist",
   location: "Bangalore, IN (Hybrid)",
   email: "yuvraj@vero.ai",
   phone: "+91 98765 43210",
-  bio: "Specializing in autonomous agent workflows and highly optimized LLM orchestration. Passionate about brutalist design systems and zero-latency technical architecture.",
-  industry: "Artificial Intelligence / SaaS",
-  experienceYears: 4,
-  currency: "USD ($)",
-  ratePerDay: 850,
-  remotePref: "Hybrid",
-  languages: ["English (Native)", "Hindi (Fluent)"],
-  skills: ["React", "Next.js", "TypeScript", "Node.js", "Python", "Supabase", "Framer Motion", "LLM Orchestration"],
-  preferredWorkTypes: ["Freelance", "Contract-Based"],
-  availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
-  hours: "09:00 - 18:00 (IST)",
-  education: "B.Tech in Computer Science",
-  workHistory: "Previously led UI/UX engineering at stealth AI startup. Engineered high-throughput frontend architectures handling 1M+ MAU.",
+  bio: "Specializing in commercial facility climate systems, VRF HVAC units, and industrial climate control orchestration. Certified master field-service expert with extensive experience in zero-downtime emergency interventions and diagnostic audits.",
+  industry: "Facility Maintenance & Field Services",
+  experienceYears: 6,
+  currency: "INR (₹)",
+  ratePerDay: 4500,
+  remotePref: "On-site",
+  languages: ["English (Professional)", "Hindi (Fluent)", "Kannada (Fluent)"],
+  skills: ["HVAC Maintenance", "AC Installation", "Industrial Wiring", "System Diagnostics", "Safety Standards", "Solar Integration", "Pipe Maintenance", "Smart Thermostats"],
+  preferredWorkTypes: ["Emergency Support", "Contract-Based"],
+  availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+  hours: "08:00 - 18:00 (IST)",
+  education: "Diploma in Electrical & HVAC Systems",
+  workHistory: "Previously led commercial field operations at global facilities management enterprise. Supervised and executed 500+ industrial installations and rapid-response emergency electrical wiring support.",
   links: {
-    github: "github.com/yuvraj",
+    github: "credentials.gov/hvac/YN-99371",
     linkedin: "linkedin.com/in/yuvraj",
-    portfolio: "yuvraj.vero.ai"
+    portfolio: "operations.vero.ai/yuvraj"
   }
 };
 
 const TABS = [
   { id: "profile", label: "Profile", icon: ProfileIcon },
-  { id: "projects", label: "Projects", icon: ProjectsIcon },
+  { id: "projects", label: "Assignments", icon: ProjectsIcon },
   { id: "testimonials", label: "Testimonials", icon: TestimonialsIcon },
 ];
 
@@ -351,8 +351,8 @@ export default function ProfilePage() {
               {/* Header with Action Button */}
               <div className="flex items-center justify-between border-b border-zinc-850 pb-4">
                 <div>
-                  <h3 className="text-lg font-black text-white">Project Portfolio</h3>
-                  <p className="text-xs text-zinc-500 mt-1">Showcase your best work and assignments.</p>
+                  <h3 className="text-lg font-black text-white">Operations Portfolio</h3>
+                  <p className="text-xs text-zinc-500 mt-1">Showcase your completed service operations and technical assignments.</p>
                 </div>
                 
                 <button 
@@ -360,18 +360,18 @@ export default function ProfilePage() {
                   className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors"
                 >
                   <Plus size={14} />
-                  Add Project
+                  Add Assignment
                 </button>
               </div>
 
               {/* Empty State / Grid Placeholder */}
               <div className="w-full rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-12 flex flex-col items-center justify-center text-center">
                 <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
-                  <Code2 size={24} />
+                  <Briefcase size={24} />
                 </div>
-                <h4 className="text-sm font-bold text-zinc-300">No projects added yet</h4>
+                <h4 className="text-sm font-bold text-zinc-300">No assignments added yet</h4>
                 <p className="text-xs text-zinc-500 mt-2 max-w-[280px]">
-                  Build your portfolio to increase your platform match rate with top tier companies.
+                  Document your field operations to increase your platform match rate with leading industrial and commercial clients.
                 </p>
               </div>
             </motion.div>
@@ -388,8 +388,8 @@ export default function ProfilePage() {
             >
               <div className="flex items-center justify-between border-b border-zinc-850 pb-4 mb-6">
                 <div>
-                  <h3 className="text-lg font-black text-white">Client Testimonials</h3>
-                  <p className="text-xs text-zinc-500 mt-1">Endorsements from companies you've worked with.</p>
+                  <h3 className="text-lg font-black text-white">Client Endorsements</h3>
+                  <p className="text-xs text-zinc-500 mt-1">Verifications and service quality feedback from commercial clients.</p>
                 </div>
               </div>
 
@@ -397,9 +397,9 @@ export default function ProfilePage() {
                 <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
                   <MessageSquare size={24} />
                 </div>
-                <h4 className="text-sm font-bold text-zinc-300">No testimonials yet</h4>
+                <h4 className="text-sm font-bold text-zinc-300">No endorsements yet</h4>
                 <p className="text-xs text-zinc-500 mt-2 max-w-[320px]">
-                  Complete active assignments through the platform to receive verified endorsements from clients.
+                  Complete active service assignments through the platform to receive verified endorsements from commercial clients.
                 </p>
               </div>
             </motion.div>
@@ -432,56 +432,56 @@ export default function ProfilePage() {
                 <X size={20} />
               </button>
               
-              <h2 className="text-2xl font-black text-white mb-6">Add Project</h2>
+              <h2 className="text-2xl font-black text-white mb-6">Add Completed Assignment</h2>
               
               <div className="space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Title</label>
-                  <input type="text" placeholder="Acme rebrand" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Operation Title</label>
+                  <input type="text" placeholder="e.g. Commercial HVAC Overhaul" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Description</label>
-                  <textarea placeholder="What you did, the outcome, the constraints…" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors min-h-[100px] resize-y" />
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Scope of Work</label>
+                  <textarea placeholder="Specify the technical challenges resolved, service checklist completed, and materials utilized…" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors min-h-[100px] resize-y" />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Your role</label>
-                    <input type="text" placeholder="Lead designer" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Your Technical Role</label>
+                    <input type="text" placeholder="e.g. Lead HVAC Technician" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Client</label>
-                    <input type="text" placeholder="Acme Corp" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Commercial Client</label>
+                    <input type="text" placeholder="e.g. Apex Facilities Group" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Year</label>
-                    <input type="text" placeholder="2025" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Completion Year</label>
+                    <input type="text" placeholder="e.g. 2026" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Tags</label>
-                    <input type="text" placeholder="branding" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Skills & Certifications Applied</label>
+                    <input type="text" placeholder="e.g. industrial-wiring, safety-cert" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Cover image URL</label>
-                  <input type="text" placeholder="https://..." className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Proof of Completion / Inspection Image URL</label>
+                  <input type="text" placeholder="https://..." className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                 </div>
                 
                 <div>
-                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">External link</label>
-                  <input type="text" placeholder="https://case-study.com/acme" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors" />
+                  <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Registry Verification URL</label>
+                  <input type="text" placeholder="https://credentials.gov/verify/YN-99371" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors" />
                 </div>
 
                 <label className="flex items-center gap-3 pt-2 cursor-pointer group">
                   <div className="w-5 h-5 rounded border border-zinc-700 bg-zinc-900 flex items-center justify-center group-hover:border-zinc-500 transition-colors">
                     {/* Placeholder for checkbox tick */}
                   </div>
-                  <span className="text-sm font-medium text-zinc-300 select-none">Feature this project at the top</span>
+                  <span className="text-sm font-medium text-zinc-300 select-none">Feature this assignment at the top</span>
                   <input type="checkbox" className="hidden" />
                 </label>
               </div>
@@ -497,7 +497,7 @@ export default function ProfilePage() {
                   onClick={() => setIsAddProjectOpen(false)}
                   className="px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-colors shadow-lg"
                 >
-                  Save project
+                  Save Assignment
                 </button>
               </div>
             </motion.div>
