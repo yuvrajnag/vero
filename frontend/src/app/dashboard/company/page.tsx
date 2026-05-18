@@ -5,93 +5,49 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { 
   LayoutDashboard, ClipboardList, Users, Handshake, Building2,
-  PanelLeftClose, PanelLeftOpen, LogOut, Sparkles, Send,
+  PanelLeftClose, PanelLeftOpen, LogOut, Compass, Send,
   MapPin, DollarSign, Calendar, ShieldCheck, Link2, ExternalLink,
   X, Plus, AlertCircle, RefreshCw, Star, Info, MessageSquare,
   Globe, Shield, FileText, CheckCircle2, ChevronRight, Edit2,
-  Mail, Phone, Clock
+  Mail, Phone, Clock, Cpu, PhoneOff, PhoneCall, XCircle, Terminal
 } from "lucide-react";
+import { useAuth, ProtectedRoute } from "@/lib/auth-context";
+import { useCompanyDashboard } from "@/hooks/use-company-dashboard";
+import { companyApi, jobApi, negotiationApi, autoAssignApi, AutoAssignCallRecord } from "@/lib/api";
+import { profileToCompanyUpdate } from "@/lib/dashboard-mappers";
 
 export default function CompanyDashboard() {
+  const { user, logout } = useAuth();
+  const {
+    loading,
+    error,
+    requests,
+    workforce,
+    negotiations,
+    companyProfile,
+    setCompanyProfile,
+    matchCandidates,
+    featuredMatch,
+    activeJobId,
+    workforceSpend,
+    refresh,
+    createJobAndMatch,
+    assignTechnician,
+    completeJobWithPayment,
+    setNegotiations,
+  } = useCompanyDashboard(user?.id);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isHoveringEdit, setIsHoveringEdit] = useState(false);
-
-  // Mock initial requests
-  const [requests, setRequests] = useState([
-    {
-      id: "REQ-001",
-      role: "HVAC Technician",
-      skills: ["HVAC Maintenance", "Thermostats", "Ventilation"],
-      budget: "4500",
-      location: "Hyderabad",
-      urgency: "Urgent",
-      duration: "15 Days",
-      status: "Matching Active",
-      assignedWorker: null
-    },
-    {
-      id: "REQ-002",
-      role: "Senior Electrician",
-      skills: ["Industrial Wiring", "Safety Standards", "Power Systems"],
-      budget: "6000",
-      location: "Bangalore",
-      urgency: "Medium",
-      duration: "30 Days",
-      status: "Assigned",
-      assignedWorker: "Alok Kumar"
-    }
-  ]);
-
-  // Mock workforce
-  const [workforce, setWorkforce] = useState([
-    {
-      id: "W-109",
-      name: "Alok Kumar",
-      role: "Senior Electrician",
-      status: "Active",
-      assignment: "Power Grid Install (Bangalore)",
-      duration: "30 Days (24 remaining)",
-    },
-    {
-      id: "W-110",
-      name: "Priya Sharma",
-      role: "Plumbing Consultant",
-      status: "Active",
-      assignment: "Water Main Overhaul (Chennai)",
-      duration: "10 Days (2 remaining)",
-    }
-  ]);
-
-  // Mock negotiations
-  const [negotiations, setNegotiations] = useState([
-    {
-      id: "NEG-902",
-      requestTitle: "HVAC Maintenance Request",
-      workerName: "Rahul Sharma",
-      role: "HVAC Specialist",
-      originalRate: "₹4500/day",
-      counterRate: "₹4200/day",
-      status: "Counter offer pending",
-      aiRecommendation: "High agreement probability at ₹4200/day."
-    }
-  ]);
-
-  // Mock company profile
-  const [companyProfile, setCompanyProfile] = useState({
-    name: "ABC Facilities Pvt Ltd",
-    industry: "Facility Management & Infrastructure",
-    location: "Bangalore, IN (HQ)",
-    email: "ops@abcfacilities.com",
-    phone: "+91 80 4992 0012",
-    hiringPreferences: "On-site, Hybrid, High urgency vetting preference",
-    website: "https://abcfacilities.com",
-    verificationStatus: "Verified Partner",
-    orgDetails: "Leading facility operations provider servicing 150+ corporate clients across India."
-  });
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [editProfileDraft, setEditProfileDraft] = useState({ ...companyProfile });
+
+  useEffect(() => {
+    setEditProfileDraft({ ...companyProfile });
+  }, [companyProfile]);
 
   const getInitials = (nameStr: string) => {
     if (!nameStr) return "CO";
@@ -112,10 +68,28 @@ export default function CompanyDashboard() {
   const [formCertifications, setFormCertifications] = useState("");
   const [formDescription, setFormDescription] = useState("");
 
+  const handleAutofill = () => {
+    setFormRole("HVAC Support Specialist");
+    setFormSkills("HVAC Maintenance, Ventilation Systems, System Calibration");
+    setFormBudget("4200");
+    setFormLocation("Hyderabad");
+    setFormUrgency("Urgent");
+    setFormDuration("10 Days");
+    setFormCertifications("Universal EPA Section 608 Certification");
+    setFormDescription("Perform routine maintenance, airflow testing, and calibrate smart thermostats for retail systems.");
+  };
+
   // AI Matching animation states
   const [isMatching, setIsMatching] = useState(false);
   const [matchStep, setMatchStep] = useState(0);
   const [showMatchResults, setShowMatchResults] = useState(false);
+
+  // Auto-Assign (Vapi calling) states
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
+  const [autoAssignStatus, setAutoAssignStatus] = useState<"idle" | "calling" | "completed" | "exhausted">("idle");
+  const [autoAssignCalls, setAutoAssignCalls] = useState<AutoAssignCallRecord[]>([]);
+  const [autoAssignError, setAutoAssignError] = useState<string | null>(null);
+  const [acceptedCandidate, setAcceptedCandidate] = useState<any | null>(null);
 
   const matchSteps = [
     "analyzing workforce requirements...",
@@ -143,29 +117,30 @@ export default function CompanyDashboard() {
     }
   }, [isMatching]);
 
-  const handleRunAI = (e: React.FormEvent) => {
+  const handleRunAI = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formRole || !formBudget || !formLocation) return;
     setIsMatching(true);
     setMatchStep(0);
     setShowMatchResults(false);
+    try {
+      await createJobAndMatch({
+        role: formRole,
+        skills: formSkills,
+        budget: formBudget,
+        location: formLocation,
+        urgency: formUrgency,
+        duration: formDuration,
+        certifications: formCertifications,
+        description: formDescription,
+      });
+    } catch (err) {
+      console.error(err);
+      setIsMatching(false);
+    }
   };
 
-  const handleSaveRequest = () => {
-    // Add new request to mock state
-    const newReq = {
-      id: `REQ-00${requests.length + 1}`,
-      role: formRole,
-      skills: formSkills.split(",").map(s => s.trim()),
-      budget: formBudget,
-      location: formLocation,
-      urgency: formUrgency,
-      duration: formDuration || "Flexible",
-      status: "Matching Active",
-      assignedWorker: null
-    };
-    setRequests([newReq, ...requests]);
-    // Reset form
+  const resetRequestForm = () => {
     setFormRole("");
     setFormSkills("");
     setFormBudget("");
@@ -174,7 +149,134 @@ export default function CompanyDashboard() {
     setFormCertifications("");
     setFormDescription("");
     setShowMatchResults(false);
+  };
+
+  const handleSaveRequest = async () => {
+    resetRequestForm();
     setActiveTab("Dashboard");
+    await refresh();
+  };
+
+  const handleAssignCandidate = async (technicianId: string) => {
+    if (!activeJobId) return;
+    await assignTechnician(activeJobId, technicianId);
+    resetRequestForm();
+    setActiveTab("Workforce");
+  };
+
+  const handleAutoAssign = async () => {
+    if (!activeJobId || !matchCandidates || matchCandidates.length === 0) return;
+    setIsAutoAssigning(true);
+    setAutoAssignError(null);
+    setAutoAssignStatus("calling");
+    setAutoAssignCalls([]);
+    try {
+      await autoAssignApi.trigger(
+        activeJobId,
+        matchCandidates.map((c) => ({
+          technician_id: c.technicianId,
+          base_hourly_rate: parseFloat(c.rate.replace(/[^\d.]/g, "")) || 0,
+          final_score: parseFloat(c.match.replace(/[^\d.]/g, "")) / 100 || 0.8,
+          matched_skills: [],
+        }))
+      );
+      // Poll every 2.5 s until campaign ends for high-fidelity interactive feedback
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusData = await autoAssignApi.status(activeJobId);
+          setAutoAssignCalls(statusData.calls);
+          setAutoAssignStatus(statusData.status);
+          if (statusData.status === "completed" || statusData.status === "exhausted") {
+            clearInterval(pollInterval);
+            setIsAutoAssigning(false);
+            if (statusData.status === "completed") {
+              // Wait a few seconds to let user see who accepted, then trigger the review screen
+              setTimeout(() => {
+                const acceptedCall = statusData.calls.find((c: any) => c.status === "accepted");
+                const candidate = matchCandidates.find((c) => c.technicianId === statusData.assigned_technician_id);
+                if (candidate) {
+                  setAcceptedCandidate({
+                    ...candidate,
+                    agreedPrice: acceptedCall?.agreed_price || parseFloat(candidate.rate.replace(/[^\d.]/g, "")) || 2400,
+                    summary: acceptedCall?.call_summary || "Technician successfully negotiated and accepted the contract via AI phone."
+                  });
+                }
+              }, 2000);
+            }
+          }
+        } catch {
+          clearInterval(pollInterval);
+          setIsAutoAssigning(false);
+        }
+      }, 2500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setAutoAssignError(msg);
+      setIsAutoAssigning(false);
+      setAutoAssignStatus("idle");
+    }
+  };
+
+  // Auto-trigger the Auto-Assign voice calling dispatcher as soon as matches finish calculating!
+  useEffect(() => {
+    if (showMatchResults && activeJobId && matchCandidates.length > 0 && autoAssignStatus === "idle") {
+      handleAutoAssign();
+    }
+  }, [showMatchResults, activeJobId, matchCandidates, autoAssignStatus]);
+
+  const handleConfirmAccept = async () => {
+    if (!acceptedCandidate) return;
+    await refresh();
+    setAcceptedCandidate(null);
+    setShowMatchResults(false);
+    setActiveTab("Workforce");
+  };
+
+  const handleConfirmReject = async () => {
+    setAcceptedCandidate(null);
+    setAutoAssignStatus("idle");
+    setAutoAssignCalls([]);
+    setIsAutoAssigning(false);
+  };
+
+  const handleStartNegotiation = async (technicianId: string, offeredRate: string) => {
+    if (!activeJobId || !user?.id) return;
+    const numeric = parseFloat(offeredRate.replace(/[^\d.]/g, "")) || Number(formBudget);
+    await negotiationApi.start({
+      job_request_id: activeJobId,
+      customer_id: user.id,
+      technician_id: technicianId,
+      initial_price: Number(formBudget),
+      offered_price: numeric,
+    });
+    await refresh();
+    resetRequestForm();
+    setActiveTab("Negotiations");
+  };
+
+  const handleSaveCompanyProfile = async () => {
+    setSavingProfile(true);
+    try {
+      const updated = await companyApi.update(profileToCompanyUpdate(editProfileDraft));
+      setCompanyProfile({
+        name: updated.company_name || editProfileDraft.name,
+        industry: updated.other_industry || updated.industry || editProfileDraft.industry,
+        location: updated.hq_location || editProfileDraft.location,
+        email: updated.email || editProfileDraft.email,
+        phone: updated.phone || editProfileDraft.phone,
+        hiringPreferences: updated.hiring_preferences || editProfileDraft.hiringPreferences,
+        website: updated.website_url || editProfileDraft.website,
+        verificationStatus: updated.identity_verification_url
+          ? "Verified Partner"
+          : "Pending Verification",
+        orgDetails: updated.about || editProfileDraft.orgDetails,
+      });
+      setIsEditingProfile(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const navigationItems = [
@@ -186,12 +288,13 @@ export default function CompanyDashboard() {
   ];
 
   return (
-    <div className="flex h-screen w-screen bg-black text-white font-sans overflow-hidden selection:bg-white selection:text-black antialiased">
+    <ProtectedRoute allowedRoles={["customer", "admin"]}>
+      <div className="flex h-screen w-screen premium-bg text-white font-sans overflow-hidden selection:bg-zinc-800 selection:text-white antialiased">
       
       {/* Background Subtle Ambient Glow */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-zinc-900/20 blur-[150px] rounded-full" />
-        <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-zinc-900/20 blur-[150px] rounded-full" />
+        <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-zinc-900/10 blur-[150px] rounded-full" />
+        <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-zinc-900/10 blur-[150px] rounded-full" />
       </div>
 
       {/* --- SIDEBAR --- */}
@@ -288,8 +391,8 @@ export default function CompanyDashboard() {
               }}
               className="flex items-center min-w-0 overflow-hidden shrink-0 gap-3 cursor-pointer group/identity"
             >
-              <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-xs text-white relative shrink-0">
-                {getInitials(companyProfile.name)}
+              <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-xs text-white relative shrink-0 uppercase">
+                {user?.full_name ? getInitials(user.full_name) : getInitials(companyProfile.name)}
                 <div className="absolute bottom-[-1px] right-[-1px] w-3 h-3 bg-emerald-500 rounded-full border-2 border-[#121212]" />
               </div>
               
@@ -302,10 +405,12 @@ export default function CompanyDashboard() {
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="overflow-hidden whitespace-nowrap flex flex-col justify-center shrink-0 pr-6"
               >
-                <p className="text-xs font-bold text-zinc-200 group-hover/identity:text-white transition-colors leading-none">{companyProfile.name}</p>
+                <p className="text-xs font-bold text-zinc-200 group-hover/identity:text-white transition-colors leading-none">{user?.full_name || companyProfile.name}</p>
                 <p className="text-[9px] font-mono text-zinc-500 mt-1 leading-none">CLIENT ACCESS</p>
               </motion.div>
             </div>
+
+
 
             {/* Logout Button */}
             <motion.button 
@@ -315,9 +420,7 @@ export default function CompanyDashboard() {
                 x: isSidebarOpen ? 0 : 15
               }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              onClick={() => {
-                window.location.href = "/login";
-              }}
+              onClick={logout}
               className="absolute right-2 p-1 text-zinc-500 hover:text-red-400 hover:bg-zinc-900 rounded-md transition-all shrink-0 overflow-hidden"
               style={{ pointerEvents: isSidebarOpen ? "auto" : "none" }}
               title="Logout"
@@ -329,7 +432,22 @@ export default function CompanyDashboard() {
       </motion.aside>
 
       {/* --- DASHBOARD MAIN CONTAINER --- */}
-      <main className="flex-1 h-full overflow-y-auto z-10 relative px-4 md:px-8 py-6">
+      <main className="flex-1 h-full overflow-y-auto z-10 relative px-4 md:px-8 py-6 flex flex-col">
+        {error && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="max-w-5xl mx-auto mb-4 rounded-xl border border-red-900/40 bg-red-950/30 px-4 py-3 text-sm text-red-400"
+          >
+            {error}
+          </motion.div>
+        )}
+        {loading && (
+          <div className="max-w-5xl mx-auto mb-4 flex items-center gap-2 text-xs text-zinc-500">
+            <div className="h-3 w-3 animate-spin rounded-full border-2 border-zinc-800 border-t-zinc-400" />
+            Syncing dashboard data...
+          </div>
+        )}
         <AnimatePresence mode="wait">
           
           {/* ===================== 1. DASHBOARD TAB ===================== */}
@@ -339,10 +457,10 @@ export default function CompanyDashboard() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="space-y-8 max-w-5xl mx-auto"
+              className="space-y-4.5 max-w-5xl mx-auto w-full my-auto py-2"
             >
               {/* --- BIG RECTANGLE WELCOME CARD --- */}
-              <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-r from-zinc-950 via-zinc-950 to-zinc-900/40 backdrop-blur-xl py-4 px-6 md:py-5 md:px-8 flex flex-col md:flex-row items-center justify-between gap-6 group min-h-[120px] z-20 hover:border-zinc-700/80 transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.01)]">
+              <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-r from-zinc-950 via-zinc-950 to-zinc-900/40 backdrop-blur-xl py-3 px-4 md:py-3.5 md:px-6 flex flex-col md:flex-row items-center justify-between gap-6 group min-h-[90px] z-20 hover:border-zinc-700/80 transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.01)]">
                 
                 {/* Decoupled Background Container to clip grid lines safely without cropping dropdown */}
                 <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none z-0">
@@ -353,11 +471,6 @@ export default function CompanyDashboard() {
                   <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.025)_1px,transparent_1px)] [background-size:8px_8px] opacity-80" />
                   
                   {/* Animated Sweeping Laser Scanner Line */}
-                  <motion.div
-                    animate={{ y: ["0%", "280%"] }}
-                    transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut" }}
-                    className="absolute inset-x-0 h-[1.5px] bg-gradient-to-r from-transparent via-zinc-400/20 to-transparent pointer-events-none"
-                  />
 
                   {/* Slow-Drift Silver Ambient Depth Orbs */}
                   <motion.div
@@ -375,7 +488,7 @@ export default function CompanyDashboard() {
                 {/* Content Left */}
                 <div className="relative z-10 flex-1 text-center md:text-left">
                   <h2 className="text-xl md:text-2xl font-black tracking-tight text-white flex items-center justify-center md:justify-start gap-3">
-                    <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Welcome back, {companyProfile.name}</span>
+                    <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Welcome back, {user?.full_name || companyProfile.name}</span>
                   </h2>
                   <p className="text-zinc-400 mt-1.5 text-xs leading-relaxed max-w-[500px]">
                     Manage workforce operations and create AI-powered workforce requests in real time.
@@ -384,7 +497,7 @@ export default function CompanyDashboard() {
                   <div className="flex gap-3 mt-4 justify-center md:justify-start">
                     <button 
                       onClick={() => setActiveTab("Requests")}
-                      className="px-4.5 py-2 bg-white text-black font-bold text-[10px] uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-colors shadow-lg"
+                      className="px-4.5 py-2 bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all border border-zinc-700/50 shadow-md"
                     >
                       Create Request
                     </button>
@@ -404,9 +517,6 @@ export default function CompanyDashboard() {
                   <div className="w-full h-full rounded-full border border-zinc-800 bg-zinc-900/80 backdrop-blur-md flex items-center justify-center font-black text-xl md:text-2xl text-zinc-300 shadow-[0_0_30px_rgba(255,255,255,0.02)] relative overflow-hidden select-none">
                     <span className="bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent font-sans tracking-tight">{getInitials(companyProfile.name)}</span>
 
-                    <div className="absolute top-1.5 right-1.5 text-zinc-555">
-                      <Sparkles size={8} className="animate-pulse text-zinc-400" />
-                    </div>
                   </div>
 
                   {/* Status Indicator */}
@@ -425,36 +535,36 @@ export default function CompanyDashboard() {
                   { title: "Active Requests", value: requests.length, desc: "Current open workforce requests" },
                   { title: "Active Workforce", value: workforce.length, desc: "Currently assigned workers" },
                   { title: "Pending Negotiations", value: negotiations.length, desc: "Offers / counter-offers active" },
-                  { title: "Workforce Spend", value: "₹23,500", desc: "Operational spending summary" }
+                  { title: "Workforce Spend", value: `\u20B9${workforceSpend.toLocaleString()}`, desc: "Operational spending summary" }
                 ].map((stat, i) => (
-                  <div key={i} className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 hover:border-zinc-700/80 p-5 transition-all duration-300 flex flex-col justify-between group overflow-hidden min-h-[140px] hover:scale-[1.01] shadow-[0_0_20px_rgba(255,255,255,0.003)]">
+                  <div key={i} className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 hover:border-zinc-700/80 p-3.5 transition-all duration-300 flex flex-col justify-between group overflow-hidden min-h-[105px] hover:scale-[1.01] shadow-[0_0_20px_rgba(255,255,255,0.003)]">
                     {/* Ambient subtle glow inside the stats cards */}
                     <div className="absolute top-0 right-0 w-16 h-16 bg-zinc-400/[0.02] rounded-full blur-lg pointer-events-none group-hover:scale-110 transition-transform duration-500" />
                     <div>
                       <span className="text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500">{stat.title}</span>
-                      <p className="text-[11px] text-zinc-400 mt-1 leading-normal font-medium">{stat.desc}</p>
+                      <p className="text-[11px] text-zinc-400 mt-0.5 leading-normal font-medium">{stat.desc}</p>
                     </div>
-                    <p className="text-2xl font-black mt-4 bg-gradient-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent tracking-tight leading-none">{stat.value}</p>
+                    <p className="text-xl font-black mt-2 bg-gradient-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent tracking-tight leading-none">{stat.value}</p>
                   </div>
                 ))}
               </div>
 
               {/* RECENT REQUESTS & AI MATCHING PREVIEW COLUMN GRID */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 
                 {/* Left Side: Recent Requests List */}
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 p-6 shadow-2xl hover:border-zinc-700/40 transition-all duration-300">
-                    <div className="flex justify-between items-center mb-6">
+                <div className="lg:col-span-2 flex flex-col justify-between h-full space-y-4">
+                  <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 p-4 shadow-2xl hover:border-zinc-700/40 transition-all duration-300">
+                    <div className="flex justify-between items-center mb-3">
                       <h3 className="text-[10px] font-black uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">Recent Requests</h3>
                       <button onClick={() => setActiveTab("Requests")} className="text-[10px] font-bold text-zinc-500 hover:text-white transition-colors flex items-center gap-1">
                         View All <ChevronRight size={12} />
                       </button>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {requests.map((req) => (
-                        <div key={req.id} className="p-4 rounded-2xl border border-zinc-850 bg-zinc-900/10 flex justify-between items-center hover:border-zinc-700/50 transition-all duration-300">
+                        <div key={req.id} className="p-3 rounded-2xl border border-zinc-850 bg-zinc-900/10 flex justify-between items-center hover:border-zinc-700/50 transition-all duration-300">
                           <div>
                             <div className="flex items-center gap-3">
                               <h4 className="text-xs font-bold text-white">{req.role}</h4>
@@ -464,8 +574,8 @@ export default function CompanyDashboard() {
                             </div>
                             <div className="flex items-center gap-3 mt-1.5 text-xs text-zinc-500 font-medium">
                               <span>{req.location}</span>
-                              <span className="text-zinc-700">•</span>
-                              <span>₹{req.budget}/day</span>
+                              <span className="text-zinc-700">{"\u2022"}</span>
+                              <span>{"\u20B9"}{req.budget}/day</span>
                             </div>
                           </div>
                           
@@ -481,28 +591,27 @@ export default function CompanyDashboard() {
                   </div>
 
                   {/* NEGOTIATION PREVIEW SECTION */}
-                  <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 p-6 shadow-2xl hover:border-zinc-700/40 transition-all duration-300">
-                    <h3 className="text-[10px] font-black uppercase tracking-wider text-zinc-300 mb-4">Active Negotiations</h3>
+                  <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 p-4 shadow-2xl hover:border-zinc-700/40 transition-all duration-300 flex-1 flex flex-col justify-between">
+                    <h3 className="text-[10px] font-black uppercase tracking-wider text-zinc-300 mb-2">Active Negotiations</h3>
                     {negotiations.length > 0 ? (
-                      <div className="p-4 rounded-2xl border border-zinc-850 bg-zinc-900/10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="p-3 rounded-2xl border border-zinc-850 bg-zinc-900/10 flex flex-col md:flex-row md:items-center justify-between gap-4 flex-1">
                         <div>
                           <p className="text-[8px] font-mono text-zinc-500 uppercase">Pending Review</p>
-                          <h4 className="text-xs font-bold text-white mt-1">{negotiations[0].requestTitle}</h4>
-                          <p className="text-xs text-zinc-400 mt-1">Counter offer pending from {negotiations[0].workerName} ({negotiations[0].counterRate})</p>
+                          <h4 className="text-xs font-bold text-white mt-1">{negotiations[0].request_title}</h4>
+                          <p className="text-xs text-zinc-400 mt-1">Counter offer pending from {negotiations[0].worker_name} ({negotiations[0].counter_rate})</p>
                           <div className="mt-3 flex items-center gap-2 text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1.5 rounded-lg w-fit">
-                            <Sparkles size={12} className="shrink-0 text-zinc-400" />
-                            <span className="text-[10px] font-medium">{negotiations[0].aiRecommendation}</span>
+                            <span className="text-[10px] font-medium">{negotiations[0].ai_recommendation}</span>
                           </div>
                         </div>
                         <button 
                           onClick={() => setActiveTab("Negotiations")}
-                          className="px-4 py-2 border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shrink-0"
+                          className="px-4 py-2 border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors shrink-0 self-center"
                         >
                           Open Negotiation
                         </button>
                       </div>
                     ) : (
-                      <div className="text-center py-6 border border-dashed border-zinc-850 rounded-xl">
+                      <div className="text-center border border-dashed border-zinc-850 rounded-xl flex-1 flex flex-col items-center justify-center min-h-[90px]">
                         <p className="text-xs text-zinc-500">No active negotiations in progress.</p>
                       </div>
                     )}
@@ -510,75 +619,97 @@ export default function CompanyDashboard() {
                 </div>
 
                 {/* Right Side: AI MATCHING PREVIEW (MAIN FEATURE SECTION) */}
-                <div className="space-y-6">
-                  <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 p-6 flex flex-col justify-between h-full shadow-2xl hover:border-zinc-700/40 transition-all duration-300">
+                <div className="space-y-4 h-full flex flex-col">
+                  <div className="relative rounded-3xl border border-zinc-800 bg-gradient-to-br from-zinc-950 via-zinc-950 to-zinc-900/30 p-3.5 flex flex-col justify-between h-full shadow-2xl hover:border-zinc-700/40 transition-all duration-300">
                     <div>
-                      <div className="flex items-center gap-2 mb-4">
-                        <Sparkles size={16} className="text-white" />
+                      <div className="flex items-center gap-2 mb-3">
                         <h3 className="text-[10px] font-black uppercase tracking-wider text-zinc-300">AI Matching Preview</h3>
                       </div>
                       
                       {/* Worker Profile Card */}
-                      <div className="p-5 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-2xl relative overflow-hidden group">
+                      <div className="p-3 rounded-2xl border border-zinc-800 bg-zinc-950/80 shadow-2xl relative overflow-hidden group">
                         {/* Sexy background dotted mesh overlay inside worker asset card */}
                         <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none z-0 opacity-40">
                           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.008)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.008)_1px,transparent_1px)] bg-[size:1rem_1rem]" />
                           <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.015)_1px,transparent_1px)] [background-size:6px_6px]" />
                         </div>
 
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-zinc-900/50 rounded-bl-full flex items-center justify-center border-l border-b border-zinc-800 z-10">
-                          <span className="text-sm font-black text-white">94%</span>
+                        <div className="absolute top-0 right-0 w-14 h-14 bg-zinc-900/80 rounded-bl-2xl flex items-center justify-center border-l border-b border-zinc-800 z-10">
+                          <span className="text-xs font-bold text-white">
+                            {featuredMatch ? `${Math.round(featuredMatch.score * 100)}%` : "\u2014"}
+                          </span>
                         </div>
 
-                        <div className="flex items-center gap-3 relative z-10">
-                          <div className="w-10 h-10 rounded-full bg-zinc-800 border border-zinc-750 flex items-center justify-center font-black text-xs text-white">
-                            RS
+                        <div className="flex items-center gap-2.5 relative z-10">
+                          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-750 flex items-center justify-center font-black text-xs text-white">
+                            {(featuredMatch?.tech.full_name || "T").substring(0, 2).toUpperCase()}
                           </div>
                           <div>
-                            <h4 className="text-sm font-bold text-white">Rahul Sharma</h4>
-                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide mt-0.5">HVAC Specialist</p>
+                            <h4 className="text-sm font-bold text-white">
+                              {featuredMatch?.tech.full_name || "No match yet"}
+                            </h4>
+                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide mt-0.5">
+                              {featuredMatch?.tech.role || "Run AI matching"}
+                            </p>
                           </div>
                         </div>
 
-                        <div className="mt-5 grid grid-cols-2 gap-4 border-t border-b border-zinc-850 py-3 text-xs relative z-10">
+                        <div className="mt-3.5 grid grid-cols-2 gap-2 border-t border-b border-zinc-850 py-2 text-xs relative z-10">
                           <div>
                             <span className="text-[9px] text-zinc-500 block uppercase">Status</span>
-                            <span className="font-bold text-zinc-300 mt-0.5 block">Available</span>
+                            <span className="font-bold text-zinc-300 mt-0.5 block">
+                              {featuredMatch?.tech.is_online ? "Available" : featuredMatch ? "Offline" : "\u2014"}
+                            </span>
                           </div>
                           <div>
                             <span className="text-[9px] text-zinc-500 block uppercase">Experience</span>
-                            <span className="font-bold text-zinc-300 mt-0.5 block">5 Years</span>
+                            <span className="font-bold text-zinc-300 mt-0.5 block">
+                              {featuredMatch ? `${featuredMatch.tech.experience_years} Years` : "\u2014"}
+                            </span>
                           </div>
                           <div className="col-span-2">
                             <span className="text-[9px] text-zinc-500 block uppercase">Location</span>
-                            <span className="font-bold text-zinc-300 mt-0.5 block">Hyderabad</span>
+                            <span className="font-bold text-zinc-300 mt-0.5 block">
+                              {featuredMatch?.tech.location || "\u2014"}
+                            </span>
                           </div>
                         </div>
 
-                        <div className="mt-4">
+                        <div className="mt-2.5">
                           <p className="text-[9px] text-zinc-500 uppercase tracking-wider font-bold">AI Rationale</p>
-                          <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
-                            Matches required certifications, budget bounds, and optimal geographic proximity metrics.
+                          <p className="text-[10.5px] text-zinc-450 mt-0.5 leading-normal">
+                            {featuredMatch?.tech.bio ||
+                              "Run AI matching on a workforce request to populate this preview."}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-6 flex flex-col gap-2">
+                    <div className="mt-3 flex flex-col gap-1.5">
                       <button 
-                        onClick={() => setActiveTab("Negotiations")}
-                        className="w-full py-2.5 bg-white text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-colors"
+                        onClick={() => {
+                          if (featuredMatch && activeJobId) {
+                            handleStartNegotiation(
+                              featuredMatch.tech.id,
+                              String(featuredMatch.tech.daily_rate ?? formBudget)
+                            );
+                          } else {
+                            setActiveTab("Requests");
+                          }
+                        }}
+                        disabled={!featuredMatch}
+                        className="w-full py-2 bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-700 transition-colors border border-zinc-700/50 shadow-md disabled:opacity-40"
                       >
                         Negotiate
                       </button>
                       <button 
                         onClick={() => {
-                          const updated = requests.map(r => r.id === "REQ-001" ? { ...r, status: "Assigned", assignedWorker: "Rahul Sharma" } : r);
-                          setRequests(updated);
-                          setWorkforce([{ id: "W-111", name: "Rahul Sharma", role: "HVAC Specialist", status: "Active", assignment: "HVAC Repair (Hyderabad)", duration: "15 Days" }, ...workforce]);
-                          setActiveTab("Workforce");
+                          if (featuredMatch && activeJobId) {
+                            handleAssignCandidate(featuredMatch.tech.id);
+                          }
                         }}
-                        className="w-full py-2.5 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-xl transition-all"
+                        disabled={!featuredMatch || !activeJobId}
+                        className="w-full py-2 border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-xl transition-all disabled:opacity-40"
                       >
                         Assign Instantly
                       </button>
@@ -597,7 +728,7 @@ export default function CompanyDashboard() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="max-w-2xl mx-auto space-y-6"
+              className="max-w-4xl mx-auto w-full my-auto py-2"
             >
               {isMatching ? (
                 /* AI PROCESSING ANIMATION */
@@ -614,10 +745,9 @@ export default function CompanyDashboard() {
                     <motion.div 
                       animate={{ rotate: -360 }}
                       transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-                      className="absolute inset-2 rounded-full border-2 border-dashed border-white/50"
-                    />
+                      className="absolute inset-2 rounded-full border-2 border-dashed border-zinc-500/50" />
                     <div className="absolute inset-4 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
-                      <Sparkles size={24} className="text-white animate-pulse" />
+                      <Compass size={24} className="text-white animate-pulse" />
                     </div>
                   </div>
 
@@ -639,183 +769,410 @@ export default function CompanyDashboard() {
               ) : showMatchResults ? (
                 /* AI MATCH RESULTS PAGE */
                 <div className="space-y-6">
-                  <div className="border-b border-zinc-850 pb-4 flex justify-between items-center">
+                  <div className="border-b border-zinc-900 pb-4 flex justify-between items-center">
                     <div>
-                      <h2 className="text-xl font-black text-white">AI Match Results</h2>
-                      <p className="text-xs text-zinc-500 mt-1">Intelligent workforce options derived from global pools.</p>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-black text-white uppercase tracking-wider">AI Match Results</h2>
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-white uppercase tracking-wider animate-pulse">
+                          Live Active
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-500 mt-1">Intelligent workforce options ranked by experience, skills & price.</p>
                     </div>
                     <button 
+                      type="button"
                       onClick={() => setShowMatchResults(false)}
-                      className="p-1.5 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white"
+                      className="p-2 border border-zinc-900 bg-zinc-950 rounded-xl text-zinc-400 hover:text-white transition-all hover:bg-zinc-900"
                     >
-                      <X size={16} />
+                      <X size={14} />
                     </button>
                   </div>
 
-                  <div className="space-y-4">
-                    {[
-                      { name: "Rahul Sharma", role: "HVAC Specialist", match: "94%", exp: "5 Years", rate: "₹4200/day" },
-                      { name: "Nitin Saxena", role: "HVAC Lead Engineer", match: "88%", exp: "8 Years", rate: "₹5000/day" },
-                      { name: "Abhishek Patel", role: "Ventilation Technician", match: "82%", exp: "3 Years", rate: "₹3800/day" }
-                    ].map((candidate, idx) => (
-                      <div key={idx} className="p-5 rounded-2xl border border-zinc-850 bg-zinc-950/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <h4 className="text-sm font-bold text-white">{candidate.name}</h4>
-                            <span className="text-[9px] font-black bg-zinc-900 border border-zinc-850 px-2 py-0.5 rounded text-zinc-300 font-mono">{candidate.match} Match</span>
+                  {/* AUTO ASSIGN / AI DISPATCH PANEL */}
+                  {matchCandidates.length > 0 && (
+                    <>
+                      {acceptedCandidate ? (
+                        /* STARK GRAYSCALE CONTRACT ACCEPTANCE REVIEW MODAL/CARD */
+                        <div className="rounded-2xl border border-zinc-700 bg-zinc-950 p-6 space-y-5 relative overflow-hidden animate-fade-in shadow-2xl">
+                          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:24px_24px] opacity-10 pointer-events-none" />
+                          
+                          <div className="flex items-center gap-3 relative z-10">
+                            <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-850">
+                              <CheckCircle2 size={16} className="text-white" />
+                            </div>
+                            <div>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-white uppercase tracking-widest">
+                                AI Negotiation Successful
+                              </span>
+                              <h3 className="text-sm font-black text-white mt-1 uppercase tracking-wider">Review Contract Offer</h3>
+                            </div>
                           </div>
-                          <p className="text-xs text-zinc-500 mt-1">{candidate.role} • {candidate.exp} Experience</p>
-                          <p className="text-xs font-semibold text-zinc-400 mt-2">Rate Ask: {candidate.rate}</p>
+
+                          <div className="bg-zinc-900/40 border border-zinc-900 rounded-xl p-4 space-y-3 relative z-10">
+                            <div className="flex justify-between items-center border-b border-zinc-850 pb-2.5">
+                              <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider">Candidate</span>
+                              <span className="text-xs text-white font-bold">{acceptedCandidate.name}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-zinc-850 pb-2.5">
+                              <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider">Role</span>
+                              <span className="text-xs text-zinc-300 font-semibold">{acceptedCandidate.role}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-b border-zinc-850 pb-2.5">
+                              <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider">Negotiated Price</span>
+                              <span className="text-xs text-white font-mono font-bold">₹{acceptedCandidate.agreedPrice}/day</span>
+                            </div>
+                            <div className="space-y-1.5 pt-1">
+                              <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider block">Call Summary</span>
+                              <p className="text-xs text-zinc-400 font-medium leading-relaxed bg-zinc-950/40 border border-zinc-850/50 p-2.5 rounded-lg">
+                                {acceptedCandidate.summary}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-3 relative z-10 pt-2">
+                            <button
+                              type="button"
+                              onClick={handleConfirmAccept}
+                              className="flex-1 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider bg-white text-black hover:bg-zinc-200 transition-all font-mono shadow-md"
+                            >
+                              Confirm & Dispatch Contract
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleConfirmReject}
+                              className="flex-1 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800 hover:border-zinc-700 transition-all font-mono"
+                            >
+                              Decline Candidate
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={handleSaveRequest}
-                            className="px-4 py-2 bg-white text-black font-bold text-xs uppercase tracking-wider rounded-lg hover:bg-zinc-200 transition-all shadow-md"
-                          >
-                            Assign
-                          </button>
-                          <button 
-                            onClick={() => {
-                              setNegotiations([{
-                                id: "NEG-903",
-                                requestTitle: `${formRole} Request`,
-                                workerName: candidate.name,
-                                role: candidate.role,
-                                originalRate: `₹${formBudget}/day`,
-                                counterRate: candidate.rate,
-                                status: "Counter offer pending",
-                                aiRecommendation: "Highly negotiable margins."
-                              }, ...negotiations]);
-                              handleSaveRequest();
-                            }}
-                            className="px-4 py-2 border border-zinc-800 bg-zinc-900 text-zinc-300 font-bold text-xs uppercase tracking-wider rounded-lg hover:bg-zinc-850 transition-all"
-                          >
-                            Negotiate
-                          </button>
+                      ) : (
+                        /* AI DISPATCH ACTIVE PANEL */
+                        <div className="rounded-2xl border border-zinc-850 bg-zinc-950 p-5 space-y-4 relative overflow-hidden">
+                          {/* Background high-end grid element */}
+                          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:24px_24px] opacity-10 pointer-events-none" />
+                          
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-10">
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800">
+                                <Cpu size={16} className="text-zinc-300 animate-pulse" />
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-zinc-300 uppercase tracking-widest animate-pulse">
+                                    AI Dispatch Engaged
+                                  </span>
+                                  <span className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider">
+                                    Vero Voice Engine 3.2
+                                  </span>
+                                </div>
+                                <h3 className="text-sm font-black text-white mt-1 uppercase tracking-wider">VERO AUTONOMOUS DISPATCH SYSTEM</h3>
+                              </div>
+                            </div>
+
+                            {/* Monochromatic voice wavelength sound wave simulation */}
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900/60 border border-zinc-850">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                              <div className="flex gap-0.5 items-end h-3">
+                                <span className="w-0.5 bg-zinc-400 rounded-sm animate-bounce" style={{ height: "60%", animationDelay: "0.1s" }} />
+                                <span className="w-0.5 bg-zinc-400 rounded-sm animate-bounce" style={{ height: "90%", animationDelay: "0.3s" }} />
+                                <span className="w-0.5 bg-zinc-400 rounded-sm animate-bounce" style={{ height: "40%", animationDelay: "0.5s" }} />
+                                <span className="w-0.5 bg-zinc-400 rounded-sm animate-bounce" style={{ height: "80%", animationDelay: "0.2s" }} />
+                              </div>
+                              <span className="text-[10px] font-mono text-zinc-400 font-bold uppercase tracking-widest ml-1">AI Calling...</span>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-zinc-400 relative z-10 leading-relaxed font-medium">
+                            The Vero AI agent is actively calling technicians in rank order via phone, negotiating the daily rate, checking availability schedules, and executing contracts in the background.
+                          </p>
+
+                          {/* Error Feed */}
+                          {autoAssignError && (
+                            <div className="text-xs text-red-400 bg-red-950/30 border border-red-800/40 rounded-xl px-4 py-3 relative z-10 font-mono">
+                              [ERROR DETECTED]: {autoAssignError}
+                            </div>
+                          )}
+
+                          {/* Terminals dispatch feed */}
+                          {autoAssignCalls.length > 0 && (
+                            <div className="space-y-2 pt-4 border-t border-zinc-900 relative z-10">
+                              <div className="flex items-center justify-between text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider">
+                                <span>AI CALL DISPATCH LOG</span>
+                                <span className="text-white animate-pulse">Live telemetry feed</span>
+                              </div>
+                              <div className="grid gap-2">
+                                {autoAssignCalls.map((call) => (
+                                  <div key={call.rank} className="flex items-center justify-between bg-zinc-950 border border-zinc-900 rounded-xl px-4 py-3 text-xs font-mono">
+                                    <div className="flex items-center gap-2.5">
+                                      <span className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded uppercase font-bold tracking-widest">
+                                        Rank #{call.rank}
+                                      </span>
+                                      <span className="text-zinc-300 font-medium font-sans">
+                                        {matchCandidates.find((c) => c.technicianId === call.technician_id)?.name || "Technician"}
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-3">
+                                      {call.agreed_price && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-900 border border-zinc-800 text-white">
+                                          ₹{call.agreed_price}/day
+                                        </span>
+                                      )}
+                                      
+                                      <div className="flex items-center gap-1.5">
+                                        {call.status === "accepted" ? (
+                                          <>
+                                            <CheckCircle2 size={13} className="text-white" />
+                                            <span className="text-white font-bold uppercase text-[10px] tracking-wider">Accepted</span>
+                                          </>
+                                        ) : call.status === "rejected" ? (
+                                          <>
+                                            <XCircle size={13} className="text-zinc-500" />
+                                            <span className="text-zinc-500 font-bold uppercase text-[10px] tracking-wider">Declined</span>
+                                          </>
+                                        ) : call.status === "no_answer" ? (
+                                          <>
+                                            <PhoneOff size={13} className="text-zinc-600" />
+                                            <span className="text-zinc-600 font-bold uppercase text-[10px] tracking-wider">No Answer</span>
+                                          </>
+                                        ) : call.status === "in_progress" ? (
+                                          <>
+                                            <PhoneCall size={13} className="text-zinc-400 animate-pulse" />
+                                            <span className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider animate-pulse">In Call...</span>
+                                          </>
+                                        ) : call.status === "calling" ? (
+                                          <>
+                                            <Clock size={13} className="text-zinc-700 animate-pulse" />
+                                            <span className="text-zinc-600 font-bold uppercase text-[10px] tracking-wider animate-pulse">Ringing...</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Clock size={13} className="text-zinc-800" />
+                                            <span className="text-zinc-700 font-bold uppercase text-[10px] tracking-wider">Pending...</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {autoAssignStatus === "exhausted" && (
+                            <p className="text-xs text-zinc-500 font-mono text-center py-2 relative z-10 bg-zinc-900/40 border border-zinc-850 rounded-xl">
+                              [DISPATCH TERMINATED]: All candidates contacted. Adjust budget filters to re-dispatch.
+                            </p>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      )}
+                    </>
+                  )}
+
+                  {/* Talent List Rendering */}
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-mono text-zinc-500 font-bold uppercase tracking-wider">Matched Talent Pool</p>
+                    {matchCandidates.length === 0 ? (
+                      <p className="text-xs text-zinc-500 text-center py-8">No technicians matched yet. Ensure technicians are online in the database.</p>
+                    ) : (
+                    matchCandidates.map((candidate) => {
+                      const isTopMatch = candidate.match.includes("98") || candidate.match.includes("95");
+                      const isMidMatch = candidate.match.includes("92") || candidate.match.includes("90");
+                      
+                      const borderColor = isTopMatch ? "border-l-zinc-300" : isMidMatch ? "border-l-zinc-500" : "border-l-zinc-700";
+                      const matchBg = isTopMatch ? "bg-zinc-100 text-black border-zinc-200" : isMidMatch ? "bg-zinc-800 text-zinc-300 border-zinc-700" : "bg-zinc-900 text-zinc-400 border-zinc-800";
+                      
+                      return (
+                        <div 
+                          key={candidate.technicianId} 
+                          className={`p-5 rounded-2xl border border-zinc-900 bg-zinc-950/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-l-4 ${borderColor} hover:bg-zinc-950/80 transition-all`}
+                        >
+                          <div>
+                            <div className="flex items-center gap-3">
+                              <h4 className="text-sm font-bold text-white tracking-wide">{candidate.name}</h4>
+                              <span className={`text-[9px] font-black border px-2 py-0.5 rounded font-mono ${matchBg}`}>
+                                {candidate.match} MATCH
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-400 mt-1.5 font-medium">
+                              {candidate.role} <span className="text-zinc-600 px-1 font-mono">|</span> {candidate.exp} Experience
+                            </p>
+                            
+                            {/* Inner technical capsules for high visual fidelity */}
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-900/60 border border-zinc-850 text-zinc-500">
+                                <MapPin size={10} />
+                                {candidate.rate.includes("Hyderabad") || candidate.rate.includes("Bangalore") ? candidate.rate.split("@")[1]?.trim() || "Hyderabad" : "Hyderabad"}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-900/60 border border-zinc-850 text-zinc-400">
+                                {candidate.rate.split("@")[0].split("(")[0].trim()}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          {/* Controlled fully by the background VERO Voice Dispatch sequence */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-mono font-bold uppercase tracking-widest text-zinc-500 bg-zinc-900/40 border border-zinc-850/60 px-3 py-1.5 rounded-lg">
+                              Managed by AI
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                    )}
                   </div>
                 </div>
               ) : (
                 /* CREATE WORKFORCE REQUEST FORM */
-                <form onSubmit={handleRunAI} className="space-y-6">
-                  <div className="border-b border-zinc-850 pb-4">
-                    <h2 className="text-xl font-black text-white">Create Workforce Request</h2>
-                    <p className="text-xs text-zinc-500 mt-1">Submit technical operational requisites to initialize matching profiles.</p>
-                  </div>
-
-                  <div className="space-y-5">
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Required Role</label>
-                      <input 
-                        type="text" 
-                        required
-                        placeholder="e.g. HVAC Technician" 
-                        value={formRole}
-                        onChange={(e) => setFormRole(e.target.value)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Required Skills</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. HVAC Maintenance, Thermostats, Industrial Vents (comma separated)" 
-                        value={formSkills}
-                        onChange={(e) => setFormSkills(e.target.value)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors" 
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <form onSubmit={handleRunAI} className="w-full relative z-10 py-3">
+                  <div className="space-y-7">
+                    {/* Header Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-900 pb-4">
                       <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Budget (₹/Day)</label>
-                        <input 
-                          type="number" 
-                          required
-                          placeholder="e.g. 4500" 
-                          value={formBudget}
-                          onChange={(e) => setFormBudget(e.target.value)}
-                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors" 
-                        />
+                        <h2 className="text-xl font-black text-white uppercase tracking-wider">Create Workforce Request</h2>
+                        <p className="text-xs text-zinc-500 font-medium mt-0.5">Submit requisites to auto-trigger matching profiles.</p>
                       </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Location</label>
-                        <input 
-                          type="text" 
-                          required
-                          placeholder="e.g. Hyderabad" 
-                          value={formLocation}
-                          onChange={(e) => setFormLocation(e.target.value)}
-                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors" 
-                        />
+                      
+                      {/* Interactive Autofill */}
+                      <button
+                        type="button"
+                        onClick={handleAutofill}
+                        className="relative text-[10px] font-black uppercase tracking-widest text-zinc-300 hover:text-white transition-all duration-300 flex items-center gap-2 py-2 px-4 rounded-full bg-zinc-950/60 border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-900 shadow-md group overflow-hidden cursor-pointer shrink-0"
+                        title="Instant test preset"
+                      >
+                        <span>Demo Autofill</span>
+                      </button>
+                    </div>
+
+                    {/* Inputs Matrix */}
+                    <div className="space-y-5 pt-2">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-6">
+                        {/* Required Role */}
+                        <div>
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Required Role</label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="e.g. HVAC Technician" 
+                            value={formRole}
+                            onChange={(e) => setFormRole(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
+
+                        {/* Required Skills */}
+                        <div>
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Required Skills</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. HVAC Maintenance, Calibration" 
+                            value={formSkills}
+                            onChange={(e) => setFormSkills(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+                        {/* Budget */}
+                        <div>
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Budget ({"\u20B9"}/Day)</label>
+                          <input 
+                            type="number" 
+                            required
+                            placeholder="e.g. 4500" 
+                            value={formBudget}
+                            onChange={(e) => setFormBudget(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
+
+                        {/* Location */}
+                        <div>
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Location</label>
+                          <input 
+                            type="text" 
+                            required
+                            placeholder="e.g. Hyderabad" 
+                            value={formLocation}
+                            onChange={(e) => setFormLocation(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
+
+                        {/* Urgency */}
+                        <div>
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Urgency</label>
+                          <div className="relative">
+                            <select 
+                              value={formUrgency}
+                              onChange={(e) => setFormUrgency(e.target.value)}
+                              className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white focus:outline-none transition-colors rounded-none appearance-none cursor-pointer"
+                            >
+                              <option className="bg-zinc-950 text-white">Urgent</option>
+                              <option className="bg-zinc-950 text-white">Medium</option>
+                              <option className="bg-zinc-950 text-white">Low</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Duration */}
+                        <div>
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Duration</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. 15 Days" 
+                            value={formDuration}
+                            onChange={(e) => setFormDuration(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+                        {/* Certifications Required */}
+                        <div className="md:col-span-1">
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Certifications</label>
+                          <input 
+                            type="text" 
+                            placeholder="e.g. Universal EPA" 
+                            value={formCertifications}
+                            onChange={(e) => setFormCertifications(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
+
+                        {/* Description */}
+                        <div className="md:col-span-2">
+                          <label className="block text-[11px] font-black text-zinc-500 uppercase tracking-widest mb-2">Scope of Work Description</label>
+                          <input 
+                            type="text"
+                            placeholder="Provide high-level description details..." 
+                            value={formDescription}
+                            onChange={(e) => setFormDescription(e.target.value)}
+                            className="w-full bg-transparent border-b border-zinc-800 focus:border-white pb-2.5 text-sm text-white placeholder-zinc-700 focus:outline-none transition-colors rounded-none" 
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Urgency</label>
-                        <select 
-                          value={formUrgency}
-                          onChange={(e) => setFormUrgency(e.target.value)}
-                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-zinc-650 transition-colors appearance-none"
-                        >
-                          <option>Urgent</option>
-                          <option>Medium</option>
-                          <option>Low</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Duration</label>
-                        <input 
-                          type="text" 
-                          placeholder="e.g. 15 Days" 
-                          value={formDuration}
-                          onChange={(e) => setFormDuration(e.target.value)}
-                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors" 
-                        />
-                      </div>
+                    {/* Action Row */}
+                    <div className="pt-5 flex justify-between items-center border-t border-zinc-900">
+                      <button 
+                        type="button"
+                        onClick={() => setActiveTab("Dashboard")}
+                        className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit"
+                        className="px-10 py-3.5 bg-white hover:bg-zinc-100 text-black font-black text-[11px] uppercase tracking-widest rounded transition-all shadow-[0_0_20px_rgba(255,255,255,0.08)] hover:shadow-[0_0_30px_rgba(255,255,255,0.18)] hover:scale-[1.02] active:scale-[0.98] border border-transparent cursor-pointer"
+                      >
+                        Run AI Match
+                      </button>
                     </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Certifications Required</label>
-                      <input 
-                        type="text" 
-                        placeholder="e.g. Government HVAC License Grade-A" 
-                        value={formCertifications}
-                        onChange={(e) => setFormCertifications(e.target.value)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors" 
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Description</label>
-                      <textarea 
-                        placeholder="Scope of work details..." 
-                        value={formDescription}
-                        onChange={(e) => setFormDescription(e.target.value)}
-                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-650 transition-colors min-h-[100px] resize-y" 
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t border-zinc-850 flex justify-end gap-3">
-                    <button 
-                      type="button"
-                      onClick={() => setActiveTab("Dashboard")}
-                      className="px-5 py-2.5 text-xs font-bold text-zinc-400 hover:text-white transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button 
-                      type="submit"
-                      className="px-6 py-2.5 bg-white text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-colors shadow-lg flex items-center gap-2"
-                    >
-                      <Sparkles size={14} />
-                      Run AI Matching
-                    </button>
                   </div>
                 </form>
               )}
@@ -829,49 +1186,113 @@ export default function CompanyDashboard() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="max-w-4xl mx-auto space-y-6"
+              className="max-w-5xl mx-auto w-full my-auto space-y-6 py-4 px-2"
             >
-              <div className="border-b border-zinc-850 pb-4">
-                <h2 className="text-xl font-black text-white">Active Workforce</h2>
-                <p className="text-xs text-zinc-500 mt-1">Overview of contracted personnel assigned to operations.</p>
+              <div className="pb-2">
+                <h2 className="text-xl font-black text-white uppercase tracking-wider">Active Workforce</h2>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">Overview of contracted personnel assigned to operations.</p>
               </div>
 
-              {workforce.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {workforce.map((member) => (
-                    <div key={member.id} className="p-5 rounded-2xl border border-zinc-850 bg-zinc-950/60 flex flex-col justify-between h-[180px]">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start w-full">
+                {/* Left Telemetry HUD */}
+                <div className="lg:col-span-1 p-5 rounded-2xl border border-zinc-900 bg-zinc-950/40 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.01)_1px,transparent_1px)] [background-size:10px_10px] pointer-events-none" />
+                  <div className="relative z-10 space-y-4.5">
+                    <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">TELEMETRY MONITOR</span>
+                    </div>
+                    
+                    <div className="space-y-3.5">
                       <div>
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-bold text-white">{member.name}</h4>
-                          <span className="text-[8px] font-mono border border-zinc-800 bg-zinc-900 px-2 py-0.5 rounded text-zinc-450 uppercase tracking-widest">
-                            {member.status}
-                          </span>
-                        </div>
-                        <p className="text-xs text-zinc-500 mt-1 font-medium">{member.role}</p>
-                        <p className="text-xs text-zinc-300 mt-4"><strong className="text-zinc-500 font-medium">Assignment:</strong> {member.assignment}</p>
-                        <p className="text-xs text-zinc-300 mt-1"><strong className="text-zinc-500 font-medium">Contract:</strong> {member.duration}</p>
+                        <span className="text-[9px] text-zinc-500 uppercase block font-bold tracking-wider">OPERATIONAL NODE</span>
+                        <span className="text-xs font-bold text-zinc-300 mt-0.5 block">VERO-NODE-CORP</span>
                       </div>
-                      
-                      <div className="flex justify-end pt-3 border-t border-zinc-850">
-                        <button className="text-xs text-zinc-400 hover:text-white font-bold flex items-center gap-1">
-                          <MessageSquare size={12} /> Contact Worker
-                        </button>
+                      <div>
+                        <span className="text-[9px] text-zinc-500 uppercase block font-bold tracking-wider">CONTRACTED PERSONNEL</span>
+                        <span className="text-xs font-bold text-zinc-300 mt-0.5 block">{workforce.length} ACTIVE</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-zinc-500 uppercase block font-bold tracking-wider">SYSTEM THREADS</span>
+                        <span className="text-xs font-bold text-zinc-300 mt-0.5 block">STANDBY // LISTEN</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                /* EMPTY STATE WORKFORCE */
-                <div className="rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-16 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
-                    <Users size={24} />
+                    
+                    <div className="pt-3 border-t border-zinc-900">
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        Initiate technical workforce requests from the <strong className="text-zinc-300 hover:text-white cursor-pointer transition-colors" onClick={() => setActiveTab("Requests")}>Requests</strong> terminal to initialize automated staffing lines.
+                      </p>
+                    </div>
                   </div>
-                  <h4 className="text-sm font-bold text-zinc-300">No active workforce assignments</h4>
-                  <p className="text-xs text-zinc-500 mt-2 max-w-[320px]">
-                    Assigned professionals and active operations will appear here.
-                  </p>
                 </div>
-              )}
+
+                {/* Right Content Area */}
+                <div className="lg:col-span-2 w-full">
+                  {workforce.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {workforce.map((member) => (
+                        <div 
+                          key={member.id} 
+                          className={`p-5 bg-zinc-950/20 border border-zinc-900/60 hover:border-zinc-800 rounded-xl flex flex-col justify-between h-[180px] transition-all duration-300 relative overflow-hidden group shadow-md ${
+                            member.status === "active" || member.status === "assigned"
+                              ? "border-l-2 border-l-emerald-500/70"
+                              : "border-l-2 border-l-zinc-700"
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-bold text-white">{member.name}</h4>
+                              <span className="text-[8px] font-mono border border-zinc-800 bg-zinc-900 px-2 py-0.5 rounded text-zinc-400 uppercase tracking-widest">
+                                {member.status}
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-500 mt-1 font-medium">{member.role}</p>
+                            <p className="text-xs text-zinc-300 mt-4"><strong className="text-zinc-500 font-medium">Assignment:</strong> {member.assignment}</p>
+                            <p className="text-xs text-zinc-350 mt-1"><strong className="text-zinc-500 font-medium">Contract:</strong> {member.duration}</p>
+                          </div>
+                          
+                          {member.job_status !== "completed" && member.budget != null && (
+                            <div className="flex justify-end pt-3 border-t border-zinc-900/60">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!user?.id) return;
+                                  const rating = window.prompt("Rate this worker (1-5), or leave empty:", "5");
+                                  const reviewText = window.prompt("Optional review comment:", "") ?? "";
+                                  await completeJobWithPayment(
+                                    member.job_request_id,
+                                    member.technician_id,
+                                    member.budget!,
+                                    user.id,
+                                    rating ? Number(rating) : undefined,
+                                    reviewText || undefined
+                                  );
+                                }}
+                                className="text-[10px] font-bold uppercase tracking-wider px-3.5 py-1.5 rounded bg-zinc-800 text-white hover:bg-zinc-700 border border-zinc-700/50 shadow-sm transition-all duration-200 cursor-pointer"
+                              >
+                                Complete & Pay
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* EMPTY STATE WORKFORCE */
+                    <div className="w-full border border-zinc-900 bg-zinc-950/10 rounded-2xl p-8 min-h-[300px] flex flex-col items-center justify-center text-center relative overflow-hidden">
+                      <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.005)_1px,transparent_1px)] [background-size:8px_8px] pointer-events-none" />
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-full bg-zinc-950 border border-zinc-900 flex items-center justify-center text-zinc-500 mb-4 shadow-sm">
+                          <Users size={24} />
+                        </div>
+                        <h4 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">No active assignments</h4>
+                        <p className="text-xs text-zinc-500 mt-2 max-w-[280px] font-medium leading-relaxed">
+                          Assigned professionals and active operations will appear here.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -882,80 +1303,136 @@ export default function CompanyDashboard() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
-              className="max-w-4xl mx-auto space-y-6"
+              className="max-w-5xl mx-auto w-full my-auto space-y-6 py-4 px-2"
             >
-              <div className="border-b border-zinc-850 pb-4">
-                <h2 className="text-xl font-black text-white">Negotiations Ledger</h2>
-                <p className="text-xs text-zinc-500 mt-1">Pending and active rate structures matching operational needs.</p>
+              <div className="pb-2">
+                <h2 className="text-xl font-black text-white uppercase tracking-wider">Negotiations Ledger</h2>
+                <p className="text-xs text-zinc-500 font-medium mt-0.5">Pending and active rate structures matching operational needs.</p>
               </div>
 
-              {negotiations.length > 0 ? (
-                <div className="space-y-4">
-                  {negotiations.map((neg) => (
-                    <div key={neg.id} className="p-6 rounded-2xl border border-zinc-850 bg-zinc-950/60 space-y-4">
-                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-500 px-2 py-0.5 rounded uppercase tracking-wider">{neg.id}</span>
-                            <h4 className="text-sm font-bold text-white">{neg.requestTitle}</h4>
-                          </div>
-                          <p className="text-xs text-zinc-400 mt-1">Discussing with {neg.workerName} ({neg.role})</p>
-                        </div>
-                        <span className="text-xs font-bold text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full w-fit">
-                          {neg.status}
-                        </span>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start w-full">
+                {/* Left Telemetry HUD */}
+                <div className="lg:col-span-1 p-5 rounded-2xl border border-zinc-900 bg-zinc-950/40 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.01)_1px,transparent_1px)] [background-size:10px_10px] pointer-events-none" />
+                  <div className="relative z-10 space-y-4.5">
+                    <div className="flex items-center justify-between border-b border-zinc-900 pb-2">
+                      <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">NEGOTIATION MONITOR</span>
+                    </div>
+                    
+                    <div className="space-y-3.5">
+                      <div>
+                        <span className="text-[9px] text-zinc-500 uppercase block font-bold tracking-wider">AUTO-DECISION ENGINE</span>
+                        <span className="text-xs font-bold text-zinc-300 mt-0.5 block">VERO-AI-NEGOTIATOR</span>
                       </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 border-t border-b border-zinc-850 py-4 text-xs font-medium">
-                        <div>
-                          <span className="text-zinc-500 block uppercase text-[9px]">Original Budget</span>
-                          <span className="text-zinc-300 block mt-1">{neg.originalRate}</span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block uppercase text-[9px]">Worker Counter</span>
-                          <span className="text-zinc-300 block mt-1">{neg.counterRate}</span>
-                        </div>
-                        <div className="col-span-2">
-                          <span className="text-zinc-500 block uppercase text-[9px]">Vero Confidence Ratio</span>
-                          <span className="text-zinc-350 block mt-1 flex items-center gap-1.5 font-bold">
-                            <Sparkles size={12} className="text-zinc-550" /> {neg.aiRecommendation}
-                          </span>
-                        </div>
+                      <div>
+                        <span className="text-[9px] text-zinc-500 uppercase block font-bold tracking-wider">PENDING RECORDS</span>
+                        <span className="text-xs font-bold text-zinc-300 mt-0.5 block">{negotiations.length} RECORDS</span>
                       </div>
-
-                      <div className="flex items-center justify-end gap-3">
-                        <button className="px-4 py-2 border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors">
-                          Decline
-                        </button>
-                        <button 
-                          onClick={() => {
-                            // Assign and clean negotiation
-                            setNegotiations([]);
-                            setWorkforce([{ id: "W-112", name: neg.workerName, role: neg.role, status: "Active", assignment: neg.requestTitle, duration: "15 Days" }, ...workforce]);
-                            const updated = requests.map(r => r.role === neg.role ? { ...r, status: "Assigned", assignedWorker: neg.workerName } : r);
-                            setRequests(updated);
-                            setActiveTab("Workforce");
-                          }}
-                          className="px-5 py-2 bg-white text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-colors shadow-lg"
-                        >
-                          Accept & Assign
-                        </button>
+                      <div>
+                        <span className="text-[9px] text-zinc-500 uppercase block font-bold tracking-wider">DECISION ENGINE STATE</span>
+                        <span className="text-xs font-bold text-zinc-300 mt-0.5 block">ACTIVE // POLLING</span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                /* EMPTY STATE NEGOTIATIONS */
-                <div className="rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-16 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
-                    <Handshake size={24} />
+                    
+                    <div className="pt-3 border-t border-zinc-900">
+                      <p className="text-[10px] text-zinc-500 leading-relaxed">
+                        Vero auto-negotiation engines poll candidate targets in real-time. Incoming counters will stream directly to this dashboard panel.
+                      </p>
+                    </div>
                   </div>
-                  <h4 className="text-sm font-bold text-zinc-300">No active negotiations</h4>
-                  <p className="text-xs text-zinc-500 mt-2 max-w-[320px]">
-                    Workforce negotiations and pricing discussions will appear here.
-                  </p>
                 </div>
-              )}
+
+                {/* Right Content Area */}
+                <div className="lg:col-span-2 w-full">
+                  {negotiations.length > 0 ? (
+                    <div className="space-y-6">
+                      {negotiations.map((neg) => (
+                        <div 
+                          key={neg.id} 
+                          className={`p-6 bg-zinc-950/20 border border-zinc-900/60 hover:border-zinc-800 rounded-xl space-y-5 transition-all duration-300 relative overflow-hidden group shadow-md ${
+                            neg.status === "accepted"
+                              ? "border-l-2 border-l-emerald-500/70"
+                              : neg.status === "rejected" || neg.status === "cancelled"
+                              ? "border-l-2 border-l-rose-500/70"
+                              : "border-l-2 border-l-amber-500/70"
+                          }`}
+                        >
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              <div className="flex items-center gap-3">
+                                <span className="text-[9px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-500 px-2 py-0.5 rounded uppercase tracking-wider">{neg.display_code}</span>
+                                <h4 className="text-sm font-bold text-white">{neg.request_title}</h4>
+                              </div>
+                              <p className="text-xs text-zinc-400 mt-1">Discussing with {neg.worker_name} ({neg.role})</p>
+                            </div>
+                            <span className="text-xs font-bold text-zinc-300 bg-zinc-900 border border-zinc-800 px-3 py-1 rounded-full w-fit">
+                              {neg.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-zinc-950/40 p-4 rounded-xl text-xs font-medium border border-zinc-900/60">
+                            <div>
+                              <span className="text-zinc-500 block uppercase text-[9px]">Original Budget</span>
+                              <span className="text-zinc-350 block mt-1">{neg.original_rate}</span>
+                            </div>
+                            <div>
+                              <span className="text-zinc-500 block uppercase text-[9px]">Worker Counter</span>
+                              <span className="text-zinc-350 block mt-1">{neg.counter_rate}</span>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-zinc-500 block uppercase text-[9px]">Vero Confidence Ratio</span>
+                              <span className="text-zinc-350 block mt-1 font-bold">
+                                {neg.ai_recommendation}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await negotiationApi.update(neg.id, { negotiation_status: "rejected" });
+                                await refresh();
+                              }}
+                              className="px-4 py-2 border border-zinc-800 bg-zinc-900 hover:bg-zinc-850 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-colors cursor-pointer"
+                            >
+                              Decline
+                            </button>
+                            <button 
+                              type="button"
+                              onClick={async () => {
+                                await negotiationApi.update(neg.id, {
+                                  negotiation_status: "accepted",
+                                  accepted_by: "customer",
+                                });
+                                await refresh();
+                                setActiveTab("Workforce");
+                              }}
+                              className="px-5 py-2 bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-700 transition-all border border-zinc-700/50 shadow-md cursor-pointer"
+                            >
+                              Accept & Assign
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* EMPTY STATE NEGOTIATIONS */
+                    <div className="w-full border border-zinc-900 bg-zinc-950/10 rounded-2xl p-8 min-h-[300px] flex flex-col items-center justify-center text-center relative overflow-hidden">
+                      <div className="absolute inset-0 bg-[radial-gradient(rgba(255,255,255,0.005)_1px,transparent_1px)] [background-size:8px_8px] pointer-events-none" />
+                      <div className="relative z-10 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-full bg-zinc-950 border border-zinc-900 flex items-center justify-center text-zinc-500 mb-4 shadow-sm">
+                          <Handshake size={24} />
+                        </div>
+                        <h4 className="text-sm font-bold text-zinc-300 uppercase tracking-wider">No active negotiations</h4>
+                        <p className="text-xs text-zinc-500 mt-2 max-w-[280px] font-medium leading-relaxed">
+                          Workforce negotiations and pricing discussions will appear here.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </motion.div>
           )}
 
@@ -1042,7 +1519,7 @@ export default function CompanyDashboard() {
                       }}
                       onMouseEnter={() => setIsHoveringEdit(true)}
                       onMouseLeave={() => setIsHoveringEdit(false)}
-                      className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
+                          className="px-5 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 border border-zinc-700/50 shadow-md"
                     >
                       <Edit2 size={12} className={`transition-transform duration-300 ${isHoveringEdit ? 'rotate-12 scale-110' : ''}`} />
                       {isEditingProfile ? "Cancel Edit" : "Edit Profile"}
@@ -1261,13 +1738,11 @@ export default function CompanyDashboard() {
                           </button>
                           <button 
                             type="button" 
-                            onClick={() => {
-                              setCompanyProfile(editProfileDraft);
-                              setIsEditingProfile(false);
-                            }}
-                            className="px-6 py-2.5 rounded-xl bg-white text-black font-bold text-xs uppercase tracking-wider hover:bg-zinc-200 transition-colors shadow-lg"
+                            onClick={handleSaveCompanyProfile}
+                            disabled={savingProfile}
+                            className="px-6 py-2.5 rounded-xl bg-zinc-800 text-white font-bold text-xs uppercase tracking-wider hover:bg-zinc-700 transition-all border border-zinc-700/50 shadow-md disabled:opacity-50"
                           >
-                            Save Changes
+                            {savingProfile ? "Saving..." : "Save Changes"}
                           </button>
                         </div>
 
@@ -1283,5 +1758,6 @@ export default function CompanyDashboard() {
       </main>
 
     </div>
+    </ProtectedRoute>
   );
 }

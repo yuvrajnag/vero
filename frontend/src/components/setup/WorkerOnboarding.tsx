@@ -247,14 +247,85 @@ const FileUpload = ({ label, required, value, onChange, error }: any) => {
 };
 
 // --- MAIN COMPONENT ---
-export default function WorkerOnboarding({ onComplete }: { onComplete: () => void }) {
-  const [stage, setStage] = useState(1);
-  const totalStages = 5;
+import { useAuth } from "@/lib/auth-context";
+import { technicianApi, authApi, type TechnicianCreate } from "@/lib/api";
+import { resolveFileField } from "@/lib/onboarding-mappers";
 
-  const { register, control, handleSubmit, trigger, formState: { errors } } = useForm<FormData>({
+function formToTechnicianCreate(data: FormData): TechnicianCreate {
+  return {
+    full_name: data.fullName,
+    email: data.email,
+    phone: data.phone,
+    location: data.location,
+    address: data.address,
+    role: data.role,
+    industry: data.industry,
+    skills: data.skills,
+    experience_years: data.experience,
+    preferred_work_types: data.workType,
+    languages: data.languages,
+    available_days: data.days,
+    hours_start: data.hoursStart,
+    hours_end: data.hoursEnd,
+    remote_pref: data.remote,
+    currency: data.currency,
+    base_hourly_rate: data.rate,
+    preferred_locations: data.prefLocations || undefined,
+    emergency_availability: data.emergency || undefined,
+    education: data.education,
+    previous_employers: data.companies || undefined,
+    work_history: data.history,
+    bio: data.bio,
+    linkedin_url: data.linkedin || undefined,
+    verification_links: data.links ?? [],
+  };
+}
+
+export default function WorkerOnboarding({
+  onComplete,
+  mode = "create",
+  initialData,
+}: {
+  onComplete: () => void;
+  mode?: "create" | "edit";
+  initialData?: any;
+}) {
+  const [stage, setStage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const totalStages = 5;
+  const { user, refreshUser } = useAuth();
+
+  const { register, control, handleSubmit, trigger, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     mode: "onChange",
-    defaultValues: {
+    defaultValues: initialData ? {
+      fullName: initialData.full_name || "",
+      email: initialData.email || "",
+      phone: initialData.phone || "",
+      location: initialData.location || "",
+      address: initialData.address || "",
+      role: initialData.role || "",
+      industry: initialData.industry || "",
+      skills: initialData.skills || [],
+      experience: initialData.experience_years || 0,
+      workType: initialData.preferred_work_types || [],
+      languages: initialData.languages || [],
+      days: initialData.available_days || [],
+      hoursStart: initialData.hours_start || "",
+      hoursEnd: initialData.hours_end || "",
+      remote: initialData.remote_pref || "",
+      currency: initialData.currency || "USD ($)",
+      rate: initialData.daily_rate || 0,
+      prefLocations: initialData.preferred_locations || "",
+      emergency: initialData.emergency_availability || "",
+      education: initialData.education || "",
+      companies: initialData.previous_employers || "",
+      history: initialData.work_history || "",
+      bio: initialData.bio || "",
+      linkedin: initialData.linkedin_url || "",
+      links: initialData.verification_links || [],
+    } : {
       skills: [], workType: [], languages: [], days: [], links: [], currency: "USD ($)"
     }
   });
@@ -262,6 +333,47 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
   const { fields, append, remove } = useFieldArray({
     control, name: "links"
   });
+
+  const handleAutofill = () => {
+    setValue("fullName", "Vikram Rao");
+    setValue("email", "tech@vero.com");
+    setValue("phone", "+919876543210");
+    setValue("location", "Bangalore, Karnataka");
+    setValue("address", "Sector 4, HSR Layout, Bangalore");
+    setValue("profilePicture", new File([""], "avatar.jpg", { type: "image/jpeg" }));
+    
+    setValue("role", "Solar Integration Specialist");
+    setValue("industry", "Renewable Energy & Solar Utility");
+    setValue("skills", ["Solar Installation", "Inverter Calibration", "Grid Syncer", "DC Cabling"]);
+    setValue("experience", 8);
+    setValue("workType", ["Contract", "On-call / Gig"]);
+    setValue("languages", ["English", "Hindi", "Kannada"]);
+    
+    setValue("days", ["Mon", "Tue", "Wed", "Thu", "Fri"]);
+    setValue("hoursStart", "09:00");
+    setValue("hoursEnd", "18:00");
+    setValue("remote", "On-Site");
+    setValue("currency", "INR (₹)");
+    setValue("rate", 3200);
+    setValue("prefLocations", "Bangalore South, Electronic City");
+    setValue("emergency", "Yes");
+    
+    setValue("education", "Bachelor of Technology in Electrical Engineering");
+    setValue("companies", "Tata Power Solar, CleanMax Energy");
+    setValue("history", "Successfully assembled and configured over 50 commercial solar grid integrations, managing low-voltage DC cabling runs and high-voltage inverter calibrators.");
+    setValue("bio", "Certified electrical technician specializing in high-efficiency photovoltaic systems and automated microgrid synchronization.");
+    setValue("resume", new File([""], "resume.pdf", { type: "application/pdf" }));
+    setValue("linkedin", "https://linkedin.com/in/vikram-solar");
+    
+    setValue("certificates", new File([""], "cert.pdf", { type: "application/pdf" }));
+    setValue("licenses", new File([""], "license.pdf", { type: "application/pdf" }));
+    setValue("governmentId", new File([""], "id.pdf", { type: "application/pdf" }));
+    setValue("links", [
+      { platform: "National Workforce Registry", url: "https://registry.gov/workers/vikram-rao" }
+    ]);
+    
+    setStage(5);
+  };
 
   const handleNext = async () => {
     const fieldsToValidate = STAGE_FIELDS[stage - 1];
@@ -273,9 +385,39 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
 
   const prevStage = () => setStage(p => Math.max(p - 1, 1));
 
-  const onSubmit = (data: FormData) => {
-    console.log("Form Submitted Successfully:", data);
-    onComplete();
+  const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const enriched = {
+        ...formToTechnicianCreate(data),
+        profile_picture_url: await resolveFileField(data.profilePicture, "profile"),
+        resume_url: await resolveFileField(data.resume, "resume"),
+        certificates_url: await resolveFileField(data.certificates, "certificate"),
+        licenses_url: await resolveFileField(data.licenses, "license"),
+        government_id_url: await resolveFileField(data.governmentId, "identity", {
+          required: true,
+        }),
+      };
+
+      if (mode === "edit") {
+        await technicianApi.update(enriched);
+      } else {
+        await technicianApi.create(enriched);
+        if (!user?.onboarding_completed) {
+          await authApi.completeOnboarding("technician");
+        }
+        await refreshUser();
+      }
+      onComplete();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to complete worker onboarding";
+      setSubmitError(message);
+      console.error("Failed to complete worker onboarding", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const variants = {
@@ -296,8 +438,15 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
         
         {/* Progress Bar */}
         <div className="w-full mb-6 flex-shrink-0">
-          <div className="flex justify-between mb-2">
+          <div className="flex justify-between items-center mb-2">
             <span className="text-[9px] font-bold text-white uppercase tracking-widest">Stage {stage} of {totalStages}</span>
+            <button
+              type="button"
+              onClick={handleAutofill}
+              className="relative text-[9px] font-black uppercase tracking-widest text-zinc-300 hover:text-white transition-all duration-300 flex items-center gap-2 py-1.5 px-4 rounded-full bg-zinc-950/60 border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-900 shadow-md group overflow-hidden cursor-pointer pointer-events-auto"
+            >
+              <span>Demo Autofill</span>
+            </button>
             <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
               {stage === 1 && "Basic Information"}
               {stage === 2 && "Professional Profile"}
@@ -481,14 +630,25 @@ export default function WorkerOnboarding({ onComplete }: { onComplete: () => voi
             )}
           </AnimatePresence>
 
+          {submitError && (
+            <p className="mt-4 text-[13px] text-red-400 border border-red-900/40 bg-red-950/30 rounded-lg px-4 py-3">
+              {submitError}
+            </p>
+          )}
+
           {/* Navigation Buttons */}
           <div className="w-full flex justify-between items-center mt-auto pt-6 border-t border-zinc-900 flex-shrink-0">
             <button type="button" onClick={prevStage} disabled={stage === 1} className={`text-xs font-bold uppercase tracking-widest transition-colors ${stage === 1 ? 'text-zinc-800 cursor-not-allowed' : 'text-zinc-400 hover:text-white'}`}>
               Back
             </button>
             {stage === totalStages ? (
-              <button type="submit" className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                Complete <CheckCircle2 size={16} strokeWidth={3} />
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-50"
+              >
+                {isSubmitting ? "Saving..." : mode === "edit" ? "Save Changes" : "Complete"}{" "}
+                <CheckCircle2 size={16} strokeWidth={3} />
               </button>
             ) : (
               <button type="button" onClick={handleNext} className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]">

@@ -8,16 +8,47 @@ import CompanyOnboarding from "@/components/setup/CompanyOnboarding";
 import FileScanner from "@/components/setup/FileScanner";
 
 import { useRouter } from "next/navigation";
+import { useAuth, getDashboardPath } from "@/lib/auth-context";
+import { technicianApi } from "@/lib/api";
 
 export default function SetupPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+
   const [progress, setProgress] = useState(0);
   const [isDone, setIsDone] = useState(false);
   const [showCircle, setShowCircle] = useState(false);
   const [selected, setSelected] = useState<"work" | "hire" | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [proceeded, setProceeded] = useState(false);
+  const [hasCheckedProfile, setHasCheckedProfile] = useState(false);
 
+  // ── Profile detection: if user already has a completed profile, skip setup ──
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+    if (hasCheckedProfile) return;
+    
+    setHasCheckedProfile(true);
+    if (!user?.onboarding_completed) return;
+
+    const role = (user.role ?? "").toLowerCase();
+    if (role === "technician") {
+      technicianApi
+        .me()
+        .then(() => router.replace(getDashboardPath(user)))
+        .catch(() => {
+          /* onboarding flag set but profile missing — stay on setup to finish */
+        });
+      return;
+    }
+    router.replace(getDashboardPath(user));
+  }, [user, authLoading, isAuthenticated, router, hasCheckedProfile]);
+
+  // ── Boot progress bar ────────────────────────────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
       setProgress((prev) => {
@@ -25,7 +56,7 @@ export default function SetupPage() {
           clearInterval(timer);
           setTimeout(() => {
             setIsDone(true);
-            setTimeout(() => setShowCircle(true), 1100); 
+            setTimeout(() => setShowCircle(true), 1100);
           }, 800);
           return 100;
         }
@@ -40,7 +71,6 @@ export default function SetupPage() {
     setIsScanning(true);
   };
 
-
   const titleText = "INITIALIZING YOUR WORKSPACE";
 
   const content = {
@@ -53,6 +83,15 @@ export default function SetupPage() {
       subtext: "Create workforce allocation requests, discover verified technicians, and let Vero intelligently match the best professionals for every task."
     }
   };
+
+  // Show nothing while auth is loading (avoid flash)
+  if (authLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-black">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen flex-col items-center justify-center bg-black selection:bg-white selection:text-black antialiased font-sans overflow-hidden text-white">
@@ -67,14 +106,12 @@ export default function SetupPage() {
             transition={{ delay: 0.5, duration: 0.8, ease: "easeOut" }}
             className="absolute top-0 left-0 w-full px-12 pt-8 pb-4 flex justify-between items-center z-[60] pointer-events-auto"
           >
-            {/* Vero Text (Top Left) */}
             <div className="text-2xl font-black tracking-widest text-white">
               VERO
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-
 
       {/* File Scanner Animation */}
       <AnimatePresence mode="wait">

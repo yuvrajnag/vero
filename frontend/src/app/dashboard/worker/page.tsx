@@ -1,18 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { 
   LayoutDashboard, Compass, ClipboardList, Handshake, 
   PanelLeftClose, PanelLeftOpen, LogOut, Info, ChevronDown,
-  Briefcase, Wallet, Sparkles, CheckCircle2, X, Moon,
+  Briefcase, Wallet, CheckCircle2, X, Moon,
   Folder, MessageSquare, HandHelping, Star, FileText, FileCheck
 } from "lucide-react";
+import { useAuth, ProtectedRoute } from "@/lib/auth-context";
+import { useWorkerDashboard } from "@/hooks/use-worker-dashboard";
+import { technicianApi } from "@/lib/api";
+import { WorkerDashboardTabs } from "@/components/dashboard/WorkerDashboardTabs";
+
+function availabilityPayload(label: string) {
+  switch (label) {
+    case "Idle":
+      return { is_online: true, current_status: "idle" };
+    case "Do Not Disturb":
+      return { is_online: true, current_status: "dnd" };
+    case "Invisible":
+      return { is_online: false, current_status: "offline" };
+    default:
+      return { is_online: true, current_status: "online" };
+  }
+}
 
 // Custom Solid Brutalist Components using native filled Lucide vectors (stable, sharp, and aligned perfectly)
 const OpportunitiesIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
-  <Sparkles size={size} fill="currentColor" strokeWidth={1.5} className={`shrink-0 text-zinc-100 ${className}`} />
+  <Compass size={size} fill="currentColor" strokeWidth={1.5} className={`shrink-0 text-zinc-100 ${className}`} />
 );
 
 const AssignmentsIcon = ({ size = 20, className = "" }: { size?: number; className?: string }) => (
@@ -24,12 +41,23 @@ const NegotiationsIcon = ({ size = 20, className = "" }: { size?: number; classN
 );
 
 export default function WorkerDashboard() {
+  const { user, logout } = useAuth();
+  const { profile, opportunities, assignments, negotiations, walletBalance, loading, refresh } =
+    useWorkerDashboard(user?.id);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState("Dashboard");
   
-  // Real status states (Discord-style presets default to Online)
   const [availability, setAvailability] = useState("Online");
   const [statusMessage, setStatusMessage] = useState("Active and searching for matches");
+
+  useEffect(() => {
+    if (profile?.custom_status_message) {
+      setStatusMessage(profile.custom_status_message);
+    }
+    if (profile) {
+      setAvailability(profile.is_online ? "Online" : "Invisible");
+    }
+  }, [profile]);
   const [autoNegotiation, setAutoNegotiation] = useState(true);
   const [expiration, setExpiration] = useState("Never");
   const [visibility, setVisibility] = useState("Everyone");
@@ -112,12 +140,13 @@ export default function WorkerDashboard() {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-black text-white font-sans overflow-hidden selection:bg-white selection:text-black antialiased">
+    <ProtectedRoute allowedRoles={["technician"]}>
+      <div className="flex h-screen w-screen premium-bg text-white font-sans overflow-hidden selection:bg-zinc-800 selection:text-white antialiased">
       
       {/* Background Subtle Ambient Glow */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-zinc-900/20 blur-[150px] rounded-full" />
-        <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-zinc-900/20 blur-[150px] rounded-full" />
+        <div className="absolute top-[-30%] left-[-20%] w-[60%] h-[60%] bg-zinc-900/10 blur-[150px] rounded-full" />
+        <div className="absolute bottom-[-30%] right-[-20%] w-[60%] h-[60%] bg-zinc-900/10 blur-[150px] rounded-full" />
       </div>
 
       {/* --- SIDEBAR --- */}
@@ -214,8 +243,8 @@ export default function WorkerDashboard() {
               isSidebarOpen ? 'gap-3' : 'gap-0'
             }`}>
               {/* User Avatar (fully stable and persistent) */}
-              <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-xs text-white relative shrink-0">
-                YN
+              <div className="w-9 h-9 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-xs text-white relative shrink-0 uppercase">
+                {user?.full_name ? user.full_name.substring(0, 2) : "WK"}
                 <div className="absolute bottom-[-1px] right-[-1px] w-3.5 h-3.5 bg-zinc-950 rounded-full flex items-center justify-center border border-zinc-950 z-10 shrink-0">
                   {renderStatusIcon(availability, "w-2 h-2")}
                 </div>
@@ -233,13 +262,16 @@ export default function WorkerDashboard() {
                   isSidebarOpen ? 'pr-6' : 'pr-0'
                 }`}
               >
-                <p className="text-xs font-bold text-zinc-200 group-hover:text-white transition-colors leading-none">Yuvraj Nag</p>
-                <p className="text-[9px] font-mono text-zinc-500 mt-1 leading-none">ID: V-99371</p>
+                <p className="text-xs font-bold text-zinc-200 group-hover:text-white transition-colors leading-none">{user?.full_name || "Worker"}</p>
+                <p className="text-[9px] font-mono text-zinc-500 mt-1 leading-none uppercase">ID: {user?.id?.substring(0, 7) || "V-00000"}</p>
               </motion.div>
             </Link>
 
+
+
             {/* Logout Button (positioned absolutely to avoid flex flow disruption) */}
             <motion.button 
+              onClick={logout}
               animate={{ 
                 opacity: isSidebarOpen ? 1 : 0,
                 scale: isSidebarOpen ? 1 : 0,
@@ -310,7 +342,7 @@ export default function WorkerDashboard() {
                   {/* Content Left */}
                   <div className="relative z-10 flex-1 text-center md:text-left">
                     <h2 className="text-lg md:text-xl font-black tracking-tight text-white flex items-center justify-center md:justify-start gap-3">
-                      <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Welcome back, Yuvraj</span>
+                      <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">Welcome back, {user?.full_name?.split(" ")[0] || "Worker"}</span>
                     </h2>
                     <p className="text-zinc-400 mt-1 text-xs leading-relaxed max-w-[460px]">
                       Your workforce profile is active and available for AI-based workforce matching.
@@ -323,14 +355,10 @@ export default function WorkerDashboard() {
                     <div className="absolute inset-0 bg-gradient-to-tr from-zinc-700/5 to-zinc-400/5 opacity-40 rounded-full blur-xl pointer-events-none" />
                     
                     {/* Circle Container holding either Uploaded Image or Initials */}
-                    <div className="w-full h-full rounded-full border border-zinc-800 bg-zinc-900/80 backdrop-blur-md flex items-center justify-center font-black text-xl md:text-2xl text-zinc-300 shadow-[0_0_30px_rgba(255,255,255,0.02)] relative overflow-hidden select-none">
+                    <div className="w-full h-full rounded-full border border-zinc-800 bg-zinc-900/80 backdrop-blur-md flex items-center justify-center font-black text-xl md:text-2xl text-zinc-300 shadow-[0_0_30px_rgba(255,255,255,0.02)] relative overflow-hidden select-none uppercase">
                       {/* Standard Profile Picture Render */}
-                      <span className="bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent font-sans tracking-tight">YN</span>
+                      <span className="bg-gradient-to-br from-white to-zinc-400 bg-clip-text text-transparent font-sans tracking-tight">{user?.full_name ? user.full_name.substring(0, 2) : "WK"}</span>
 
-                      {/* Micro-sparkle decor to make it look premium */}
-                      <div className="absolute top-1.5 right-1.5 text-zinc-555">
-                        <Sparkles size={8} className="animate-pulse text-zinc-400" />
-                      </div>
                     </div>
 
                     {/* Unified Status Dot Wrapper Anchor */}
@@ -383,7 +411,6 @@ export default function WorkerDashboard() {
                     {/* Header (No horizontal line) */}
                     <div className="flex items-center justify-between pb-2 shrink-0">
                       <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
-                        <Sparkles size={12} className="text-zinc-400" />
                         AI MATCH RATE & SYSTEM INDEX
                       </h4>
                       <span className="text-[7px] font-mono bg-zinc-900/60 border border-zinc-800 text-zinc-400 px-1.5 py-0.2 rounded uppercase tracking-wider">
@@ -446,14 +473,13 @@ export default function WorkerDashboard() {
                     <div className="flex-1 flex flex-col justify-center py-2">
                       <p className="text-[8px] font-bold text-zinc-550 uppercase tracking-widest leading-none">Net Account Balance</p>
                       <h3 className="text-2xl font-black mt-1.5 bg-gradient-to-r from-white via-zinc-200 to-zinc-500 bg-clip-text text-transparent tracking-tight leading-none">
-                        ₹0
+                        ₹{walletBalance.toLocaleString()}
                       </h3>
                     </div>
 
                     {/* Subtext Footer (No horizontal line) */}
                     <div className="pt-1.5 flex items-center justify-between text-[7px] font-mono text-zinc-550 shrink-0">
                       <span>AUTO-LEDGER: ACTIVE</span>
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse" />
                     </div>
                   </div>
 
@@ -483,7 +509,9 @@ export default function WorkerDashboard() {
                       <div className="w-11 h-11 rounded-full bg-zinc-900/40 border border-zinc-800 flex items-center justify-center text-zinc-400 shadow-[0_0_15px_rgba(255,255,255,0.01)] group-hover:scale-105 transition-transform duration-300 mb-2.5 relative">
                         <OpportunitiesIcon size={18} className="animate-pulse" />
                       </div>
-                      <h5 className="text-[10px] font-bold text-zinc-300">No matching opportunities yet</h5>
+                      <h5 className="text-[10px] font-bold text-zinc-300">
+                        {loading ? "Loading opportunities…" : opportunities.length === 0 ? "No matching opportunities yet" : `${opportunities.length} open request(s)`}
+                      </h5>
                     </div>
                   </div>
 
@@ -510,7 +538,9 @@ export default function WorkerDashboard() {
                         <div className="w-8 h-8 rounded-full bg-zinc-900/40 border border-zinc-800 flex items-center justify-center text-zinc-450 mb-1.5 shrink-0 relative">
                           <AssignmentsIcon size={14} />
                         </div>
-                        <h5 className="text-[9px] font-bold text-zinc-300">No active assignments</h5>
+                        <h5 className="text-[9px] font-bold text-zinc-300">
+                          {assignments.length === 0 ? "No active assignments" : `${assignments.length} active`}
+                        </h5>
                       </div>
                     </div>
 
@@ -534,7 +564,9 @@ export default function WorkerDashboard() {
                         <div className="w-8 h-8 rounded-full bg-zinc-900/40 border border-zinc-800 flex items-center justify-center text-zinc-450 mb-1.5 shrink-0 relative">
                           <NegotiationsIcon size={14} />
                         </div>
-                        <h5 className="text-[9px] font-bold text-zinc-300">No active negotiations</h5>
+                        <h5 className="text-[9px] font-bold text-zinc-300">
+                          {negotiations.length === 0 ? "No active negotiations" : `${negotiations.length} active`}
+                        </h5>
                       </div>
                     </div>
 
@@ -553,47 +585,14 @@ export default function WorkerDashboard() {
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="w-full h-full flex flex-col items-center justify-center relative z-10 min-h-[460px] px-4 py-8"
               >
-                {activeTab === "Opportunities" && (
-                  <div className="flex flex-col items-center justify-center text-center max-w-xl w-full">
-                    {/* Large Solid Hand holding Star Icon */}
-                    <div className="w-[110px] h-[110px] rounded-full bg-zinc-950 border-[1.5px] border-zinc-800 flex items-center justify-center text-white shadow-[0_0_30px_rgba(255,255,255,0.015)] mb-6 relative group">
-                      <OpportunitiesIcon size={52} className="text-zinc-100 animate-pulse" />
-                      <div className="absolute inset-0.5 rounded-full border border-zinc-800/50 pointer-events-none" />
-                    </div>
-                    <h5 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">No matching opportunities yet</h5>
-                    <p className="text-xs md:text-sm text-zinc-500 leading-relaxed max-w-lg mt-4">
-                      AI-powered workforce opportunities will appear here when companies create relevant requests matching your skills and availability.
-                    </p>
-                  </div>
-                )}
-
-                {activeTab === "Assignments" && (
-                  <div className="flex flex-col items-center justify-center text-center max-w-xl w-full">
-                    {/* Large Solid Stacked Documents Icon matching reference stack */}
-                    <div className="w-[110px] h-[110px] rounded-full bg-zinc-950 border-[1.5px] border-zinc-800 flex items-center justify-center text-white shadow-[0_0_30px_rgba(255,255,255,0.015)] mb-6 relative">
-                      <AssignmentsIcon size={52} className="text-zinc-100" />
-                      <div className="absolute inset-0.5 rounded-full border border-zinc-800/50 pointer-events-none" />
-                    </div>
-                    <h5 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">No active assignments</h5>
-                    <p className="text-xs md:text-sm text-zinc-500 leading-relaxed max-w-lg mt-4">
-                      Accepted tasks, active workforce operations, and assignment progress will appear here.
-                    </p>
-                  </div>
-                )}
-
-                {activeTab === "Negotiations" && (
-                  <div className="flex flex-col items-center justify-center text-center max-w-xl w-full">
-                    {/* Large Solid Handshake Icon matching negotiations */}
-                    <div className="w-[110px] h-[110px] rounded-full bg-zinc-950 border-[1.5px] border-zinc-800 flex items-center justify-center text-white shadow-[0_0_30px_rgba(255,255,255,0.015)] mb-6 relative">
-                      <NegotiationsIcon size={52} className="text-zinc-100" />
-                      <div className="absolute inset-0.5 rounded-full border border-zinc-800/50 pointer-events-none" />
-                    </div>
-                    <h5 className="text-xl md:text-2xl font-black text-white tracking-tight uppercase">No active negotiations</h5>
-                    <p className="text-xs md:text-sm text-zinc-550 leading-relaxed max-w-lg mt-4">
-                      Pending offers, counter offers, and AI-assisted workforce negotiations will appear here.
-                    </p>
-                  </div>
-                )}
+                <WorkerDashboardTabs
+                  activeTab={activeTab}
+                  loading={loading}
+                  opportunities={opportunities}
+                  assignments={assignments}
+                  negotiations={negotiations}
+                  onRefresh={refresh}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -772,13 +771,23 @@ export default function WorkerDashboard() {
                 </button>
                 
                 <button
-                  onClick={() => {
-                    setAvailability(tempAvailability);
-                    setStatusMessage(tempStatusMessage);
-                    setAutoNegotiation(tempAutoNegotiation);
-                    setExpiration(tempExpiration);
-                    setVisibility(tempVisibility);
-                    setIsStatusModalOpen(false);
+                  onClick={async () => {
+                    const payload = availabilityPayload(tempAvailability);
+                    try {
+                      await technicianApi.updateAvailability({
+                        ...payload,
+                        custom_status_message: tempStatusMessage,
+                      });
+                      setAvailability(tempAvailability);
+                      setStatusMessage(tempStatusMessage);
+                      setAutoNegotiation(tempAutoNegotiation);
+                      setExpiration(tempExpiration);
+                      setVisibility(tempVisibility);
+                      setIsStatusModalOpen(false);
+                      await refresh();
+                    } catch {
+                      /* keep modal open on failure */
+                    }
                   }}
                   className="px-4 py-1.5 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black rounded-xl transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] font-sans"
                 >
@@ -791,5 +800,6 @@ export default function WorkerDashboard() {
       </AnimatePresence>
 
     </div>
+    </ProtectedRoute>
   );
 }

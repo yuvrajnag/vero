@@ -4,32 +4,61 @@ import { useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { useGoogleLogin } from "@react-oauth/google";
+import { useAuth } from "@/lib/auth-context";
+import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { register, loginWithGoogle } = useAuth();
+  const router = useRouter();
 
-  // REAL Google Signup Hook
-  const login = useGoogleLogin({
-    onSuccess: (codeResponse) => {
-      console.log("Google Signup Success:", codeResponse);
-      setIsGoogleLoading(false);
-      window.location.href = "/setup";
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+    try {
+      await register(email, password, fullName, "customer");
+      router.push("/setup");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const googleSignup = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        if (!tokenResponse.access_token) {
+          throw new Error("No Google access token returned");
+        }
+        await loginWithGoogle(tokenResponse.access_token);
+        router.push("/setup");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Google signup failed");
+      } finally {
+        setIsGoogleLoading(false);
+      }
     },
-    onError: (error) => {
-      console.error("Google Signup Failed:", error);
+    onError: () => {
       setIsGoogleLoading(false);
-      alert("Google Signup Failed. Please check if http://localhost:3000 is added to 'Authorized JavaScript origins' in your Google Cloud Console.");
+      setError("Google Signup Failed. Please try again.");
     },
-    onNonOAuthError: (err) => {
-      console.error("Non-OAuth Error:", err);
+    onNonOAuthError: () => {
       setIsGoogleLoading(false);
     }
   });
 
   const handleGoogleSignup = () => {
     setIsGoogleLoading(true);
-    login();
+    googleSignup();
   };
 
   return (
@@ -55,15 +84,21 @@ export default function SignUpPage() {
             <p className="mt-3 text-[13px] text-zinc-500">Create a new account</p>
           </div>
 
-          <form className="space-y-4" onSubmit={(e) => {
-            e.preventDefault();
-            window.location.href = "/setup";
-          }}>
+          {error && (
+            <div className="mb-5 rounded-lg border border-red-900/40 bg-red-950/30 px-4 py-3 text-[13px] text-red-400">
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleSignup}>
             <div className="space-y-1.5">
               <label className="text-[13px] font-medium text-zinc-400">Full Name</label>
               <input
+                id="signup-name"
                 type="text"
                 required
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
                 placeholder="Jane Doe"
                 className="w-full rounded-lg border border-white/5 bg-zinc-900/40 p-3 text-sm transition-all focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10 placeholder:text-zinc-800"
               />
@@ -72,8 +107,11 @@ export default function SignUpPage() {
             <div className="space-y-1.5">
               <label className="text-[13px] font-medium text-zinc-400">Email</label>
               <input
+                id="signup-email"
                 type="email"
                 required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 className="w-full rounded-lg border border-white/5 bg-zinc-900/40 p-3 text-sm transition-all focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10 placeholder:text-zinc-800"
               />
@@ -83,8 +121,11 @@ export default function SignUpPage() {
               <label className="text-[13px] font-medium text-zinc-400">Password</label>
               <div className="relative group">
                 <input
+                  id="signup-password"
                   type={showPassword ? "text" : "password"}
                   required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   className="w-full rounded-lg border border-white/5 bg-zinc-900/40 p-3 pr-10 text-sm transition-all focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/10 placeholder:text-zinc-800"
                 />
@@ -100,10 +141,19 @@ export default function SignUpPage() {
 
             <div className="pt-2 space-y-4">
               <button
+                id="signup-submit"
                 type="submit"
-                className="w-full rounded-lg bg-zinc-800/80 py-3.5 text-sm font-bold transition-all hover:bg-zinc-700 active:scale-[0.98]"
+                disabled={isLoading}
+                className="w-full rounded-lg bg-zinc-800/80 py-3.5 text-sm font-bold transition-all hover:bg-zinc-700 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                Sign up
+                {isLoading ? (
+                  <>
+                    <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                    Creating account...
+                  </>
+                ) : (
+                  "Sign up"
+                )}
               </button>
 
               <div className="relative">

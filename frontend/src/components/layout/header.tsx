@@ -40,7 +40,6 @@ export function Header({ variant = "light" }: HeaderProps) {
           <nav className="hidden items-center gap-10 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 md:flex">
             <a href="#features" className="hover:text-white transition-colors">Workspace</a>
             <a href="#how-it-works" className="hover:text-white transition-colors">Protocol</a>
-            <a href="#network" className="hover:text-white transition-colors">Network</a>
           </nav>
         </div>
 

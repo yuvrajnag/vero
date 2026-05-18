@@ -256,11 +256,21 @@ const FileUpload = ({ label, required, value, onChange, error }: any) => {
 };
 
 // --- MAIN COMPONENT ---
+import { useAuth } from "@/lib/auth-context";
+import { authApi, companyApi } from "@/lib/api";
+import {
+  formToCompanyCreate,
+  resolveFileField,
+} from "@/lib/onboarding-mappers";
+
 export default function CompanyOnboarding({ onComplete }: { onComplete: () => void }) {
   const [stage, setStage] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const totalStages = 5;
+  const { refreshUser } = useAuth();
 
-  const { register, control, handleSubmit, trigger, watch, formState: { errors } } = useForm<FormData>({
+  const { register, control, handleSubmit, trigger, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema) as any,
     mode: "onChange",
     defaultValues: {
@@ -275,6 +285,49 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
     control, name: "links"
   });
 
+  const handleAutofill = () => {
+    setValue("companyName", "Tata Power Solar Ltd");
+    setValue("email", "company@vero.com");
+    setValue("phone", "+912266658282");
+    setValue("address", "Carnac Receiving Station, Mumbai, Maharashtra");
+    setValue("hqLocation", "Mumbai, Maharashtra");
+    setValue("logo", new File([""], "logo.jpg", { type: "image/jpeg" }));
+
+    setValue("industry", "Energy / Utilities");
+    setValue("otherIndustry", "");
+    setValue("companySize", "200+");
+    setValue("businessCategory", ["Solar Construction", "Field Engineering"]);
+    setValue("website", "https://tatapowersolar.com");
+    setValue("regions", ["Bangalore South", "Mumbai West", "Delhi NCR"]);
+    setValue("about", "Leading solar EPC and grid integration utility, executing clean energy allocations and large industrial rooftop solar installations.");
+
+    setValue("workforceType", ["Field Technicians", "Contract-Based"]);
+    setValue("hiringFreq", "Weekly");
+    setValue("remotePref", "On-Site");
+    setValue("urgency", "Immediate Dispatch");
+    setValue("verificationReqs", ["Background Check", "License Verification"]);
+    setValue("currency", "INR (₹)");
+    setValue("budget", 15000);
+
+    setValue("teamSize", 45);
+    setValue("activeProjects", 8);
+    setValue("workforceGoals", ["Scale dispatch latency", "Increase contractor validation"]);
+    setValue("assignmentWorkflow", "Direct Hire");
+    setValue("commsPref", ["Email", "SMS"]);
+    setValue("notifications", "All Alerts");
+
+    setValue("registration", new File([""], "reg.pdf", { type: "application/pdf" }));
+    setValue("taxDocs", new File([""], "tax.pdf", { type: "application/pdf" }));
+    setValue("rep", "Jane Director");
+    setValue("identity", new File([""], "rep_id.pdf", { type: "application/pdf" }));
+    setValue("portfolio", new File([""], "portfolio.pdf", { type: "application/pdf" }));
+    setValue("links", [
+      { platform: "Corporate Registry", url: "https://mca.gov.in/companies/tata-solar" }
+    ]);
+
+    setStage(5);
+  };
+
   const handleNext = async () => {
     const fieldsToValidate = STAGE_FIELDS[stage - 1];
     const isStageValid = await trigger(fieldsToValidate);
@@ -285,9 +338,32 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
 
   const prevStage = () => setStage(p => Math.max(p - 1, 1));
 
-  const onSubmit = (data: FormData) => {
-    console.log("Company Form Submitted Successfully:", data);
-    onComplete();
+  const onSubmit = async (data: FormData) => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      await authApi.completeOnboarding("customer");
+
+      const payload = formToCompanyCreate({
+        ...data,
+        logo: await resolveFileField(data.logo, "company"),
+        registration: await resolveFileField(data.registration, "company"),
+        taxDocs: await resolveFileField(data.taxDocs, "company"),
+        identity: await resolveFileField(data.identity, "identity"),
+        portfolio: await resolveFileField(data.portfolio, "portfolio"),
+      });
+
+      await companyApi.create(payload);
+      await refreshUser();
+      onComplete();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to complete company onboarding";
+      setSubmitError(message);
+      console.error("Failed to complete company onboarding", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const variants = {
@@ -305,8 +381,15 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
         
         {/* Progress Bar */}
         <div className="w-full mb-6 flex-shrink-0">
-          <div className="flex justify-between mb-2">
+          <div className="flex justify-between items-center mb-2">
             <span className="text-[9px] font-bold text-white uppercase tracking-widest">Stage {stage} of {totalStages}</span>
+            <button
+              type="button"
+              onClick={handleAutofill}
+              className="relative text-[9px] font-black uppercase tracking-widest text-zinc-300 hover:text-white transition-all duration-300 flex items-center gap-2 py-1.5 px-4 rounded-full bg-zinc-950/60 border border-zinc-800 hover:border-zinc-500 hover:bg-zinc-900 shadow-md group overflow-hidden cursor-pointer pointer-events-auto"
+            >
+              <span>Demo Autofill</span>
+            </button>
             <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
               {stage === 1 && "Company Information"}
               {stage === 2 && "Organization Profile"}
@@ -322,6 +405,12 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
             />
           </div>
         </div>
+
+        {submitError && (
+          <p className="text-xs text-red-400 mb-4 border border-red-900/40 bg-red-950/30 px-3 py-2 rounded-lg">
+            {submitError}
+          </p>
+        )}
 
         {/* Main Content Area */}
         <form onSubmit={handleSubmit(onSubmit)} className="flex-1 w-full min-h-[400px] flex flex-col">
@@ -536,11 +625,11 @@ export default function CompanyOnboarding({ onComplete }: { onComplete: () => vo
               Back
             </button>
             {stage === totalStages ? (
-              <button type="submit" className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                Complete <CheckCircle2 size={16} strokeWidth={3} />
+              <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-50">
+                {isSubmitting ? "Submitting..." : <>Complete <CheckCircle2 size={16} strokeWidth={3} /></>}
               </button>
             ) : (
-              <button type="button" onClick={handleNext} className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+              <button type="button" onClick={handleNext} disabled={isSubmitting} className="px-8 py-2.5 text-xs font-bold uppercase tracking-widest rounded-full transition-all flex items-center gap-2 bg-white text-black hover:scale-105 active:scale-95 shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-50">
                 Next Stage
               </button>
             )}

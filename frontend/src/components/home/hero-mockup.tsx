@@ -52,21 +52,21 @@ export function HeroMockup() {
 
         <div className="flex min-h-0 flex-1">
           {/* Sidebar */}
-          <aside className="hidden w-40 shrink-0 border-r border-white/5 bg-zinc-950/20 p-5 sm:block md:w-48">
-            <div className="mb-10 flex items-center gap-3 px-1">
-              <div className="h-7 w-7 rounded-lg bg-white text-[12px] font-black text-black flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.15)]">V</div>
-              <span className="text-[13px] font-black tracking-tighter text-white uppercase">Vero OS</span>
+          <aside className="hidden w-36 shrink-0 border-r border-white/5 bg-zinc-950/20 p-4 sm:block">
+            <div className="mb-6 flex items-center gap-2 px-1">
+              <div className="h-6 w-6 rounded bg-white text-[10px] font-black text-black flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.15)]">V</div>
+              <span className="text-[11px] font-black tracking-tighter text-white uppercase">Vero OS</span>
             </div>
             
-            <nav className="space-y-1">
+            <nav className="space-y-0.5">
               {["Overview", "Allocation", "Network", "Audit"].map((label, i) => (
                 <div
                   key={label}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-3 text-[10px] font-black transition-all duration-300 ${
+                  className={`flex items-center gap-2 rounded px-2 py-1.5 text-[8px] font-black transition-all duration-300 ${
                     i === 1 ? "bg-white/[0.05] text-white" : "text-zinc-600 hover:text-zinc-400"
                   }`}
                 >
-                  <div className={`h-1.5 w-1.5 rounded-full ${i === 1 ? "bg-white" : "bg-transparent"}`} />
+                  <div className={`h-1 w-1 rounded-full ${i === 1 ? "bg-white" : "bg-transparent"}`} />
                   {label.toUpperCase()}
                 </div>
               ))}
@@ -75,42 +75,42 @@ export function HeroMockup() {
 
           {/* Main Content Area */}
           <main className="flex min-w-0 flex-1 flex-col">
-            <header className="flex items-center justify-between border-b border-white/5 px-8 py-5">
-              <div className="space-y-1.5">
-                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-600">Central Command</p>
-                <h3 className="text-sm font-black text-white tracking-tight uppercase">Operational Grid NY-04</h3>
+            <header className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
+              <div className="space-y-0.5">
+                <p className="text-[7px] font-black uppercase tracking-[0.4em] text-zinc-600">Central Command</p>
+                <h3 className="text-xs font-black text-white tracking-tight uppercase">Operational Grid NY-04</h3>
               </div>
-              <div className="h-8 w-8 rounded-full border border-white/10 flex items-center justify-center">
-                <div className="h-1.5 w-1.5 rounded-full bg-white/20" />
+              <div className="h-6 w-6 rounded-full border border-white/10 flex items-center justify-center">
+                <div className="h-1 w-1 rounded-full bg-white/20" />
               </div>
             </header>
 
             <div className="flex flex-1 min-h-0">
               {/* Workers List */}
-              <section className="w-1/2 border-r border-white/5 overflow-y-auto p-6 custom-scrollbar">
-                <div className="flex items-center gap-3 mb-6 px-1">
-                  <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Matched Units</h4>
+              <section className="w-1/2 border-r border-white/5 overflow-hidden p-3.5">
+                <div className="flex items-center gap-2 mb-3.5 px-1">
+                  <h4 className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Matched Units</h4>
                   <div className="h-[1px] flex-1 bg-white/5" />
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {WORKERS.map((worker) => (
                     <div
                       key={worker.id}
-                      className={`relative w-full rounded-xl border p-5 transition-all duration-700 ${
+                      className={`relative w-full rounded-lg border p-2.5 transition-all duration-700 ${
                         selectedWorker.id === worker.id
-                          ? "border-white/20 bg-white/[0.03] shadow-[0_15px_40px_rgba(0,0,0,0.6)]"
+                          ? "border-white/20 bg-white/[0.03] shadow-[0_10px_25px_rgba(0,0,0,0.6)]"
                           : "border-white/5 opacity-40"
                       }`}
                     >
                       <div className="flex justify-between items-center">
-                        <div className="space-y-1">
-                          <p className="text-[11px] font-black text-white tracking-tighter uppercase">{worker.name}</p>
-                          <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wide">{worker.role}</p>
+                        <div className="space-y-0.5">
+                          <p className="text-[9px] font-black text-white tracking-tighter uppercase">{worker.name}</p>
+                          <p className="text-[7px] text-zinc-500 font-bold uppercase tracking-wide">{worker.role}</p>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs font-black text-white">{worker.score}%</div>
-                          <div className="h-1 w-12 bg-white/5 mt-1 rounded-full overflow-hidden">
+                          <div className="text-[9px] font-black text-white">{worker.score}%</div>
+                          <div className="h-0.5 w-8 bg-white/5 mt-0.5 rounded-full overflow-hidden">
                             <div className="h-full bg-white transition-all duration-1000" style={{ width: `${worker.score}%` }} />
                           </div>
                         </div>
@@ -121,39 +121,39 @@ export function HeroMockup() {
               </section>
 
               {/* Worker Details View */}
-              <section className="w-1/2 flex flex-col overflow-y-auto p-8 custom-scrollbar bg-black/20">
-                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  <div className="flex items-center gap-5 mb-10">
-                    <div className="h-14 w-14 rounded-2xl bg-white text-black flex items-center justify-center text-xl font-black italic shadow-[0_20px_40px_rgba(255,255,255,0.15)]">
+              <section className="w-1/2 flex flex-col overflow-hidden p-4 bg-black/20">
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-lg bg-white text-black flex items-center justify-center text-sm font-black italic shadow-[0_10px_20px_rgba(255,255,255,0.15)]">
                       {selectedWorker.name.charAt(0)}
                     </div>
-                    <div className="space-y-1">
-                      <h5 className="text-lg font-black text-white tracking-tighter uppercase">{selectedWorker.name}</h5>
-                      <div className="flex gap-2">
-                        <span className="text-[9px] text-zinc-500 font-black uppercase tracking-widest border-r border-white/10 pr-2">Security Clear</span>
-                        <span className="text-[9px] text-white font-black uppercase tracking-widest">Active</span>
+                    <div className="space-y-0.5">
+                      <h5 className="text-xs font-black text-white tracking-tighter uppercase">{selectedWorker.name}</h5>
+                      <div className="flex gap-1.5">
+                        <span className="text-[7px] text-zinc-500 font-black uppercase tracking-widest border-r border-white/10 pr-1.5">Security Clear</span>
+                        <span className="text-[7px] text-white font-black uppercase tracking-widest">Active</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-8 mb-10 border-t border-white/5 pt-10">
-                    <div className="space-y-1">
-                      <p className="text-[9px] text-zinc-600 uppercase font-black tracking-[0.2em]">Deployment</p>
-                      <p className="text-sm font-black text-white">{selectedWorker.distance}</p>
+                  <div className="grid grid-cols-2 gap-4 border-t border-white/5 pt-3">
+                    <div className="space-y-0.5">
+                      <p className="text-[7px] text-zinc-650 uppercase font-black tracking-[0.2em]">Deployment</p>
+                      <p className="text-[10px] font-black text-white">{selectedWorker.distance}</p>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-[9px] text-zinc-600 uppercase font-black tracking-[0.2em]">Valuation</p>
-                      <p className="text-sm font-black text-white">{selectedWorker.price}</p>
+                    <div className="space-y-0.5">
+                      <p className="text-[7px] text-zinc-650 uppercase font-black tracking-[0.2em]">Valuation</p>
+                      <p className="text-[10px] font-black text-white">{selectedWorker.price}</p>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl bg-white/[0.03] border border-white/5 p-6 shadow-inner mb-10">
-                    <p className="text-[10px] text-zinc-400 leading-relaxed font-medium italic opacity-80">
+                  <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3 shadow-inner">
+                    <p className="text-[8px] text-zinc-400 leading-relaxed font-medium italic opacity-85">
                       "Protocol match identified. Strategic alignment score {selectedWorker.score}%. Verification of certificates complete. Ready for immediate command execution."
                     </p>
                   </div>
 
-                  <button className="w-full rounded-full py-4.5 text-[10px] font-black uppercase tracking-[0.4em] bg-white text-black hover:invert shadow-[0_20px_40px_rgba(255,255,255,0.1)] transition-all duration-300">
+                  <button className="w-full rounded-full py-2.5 text-[8px] font-black uppercase tracking-[0.3em] bg-white text-black hover:invert shadow-[0_10px_20px_rgba(255,255,255,0.1)] transition-all duration-300">
                     Confirm Allocation
                   </button>
                 </div>

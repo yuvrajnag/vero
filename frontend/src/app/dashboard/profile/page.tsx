@@ -1,49 +1,29 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   User, Briefcase, MessageSquare, Settings, Edit2, 
   MapPin, Mail, Phone, Globe, Clock, DollarSign, 
   GraduationCap, Award, FileText, Plus, Moon, LogOut,
-  ChevronLeft, LayoutDashboard, Code2, Cpu, X
+  ChevronLeft, LayoutDashboard, Code2, Cpu, X, Star
 } from "lucide-react";
 import Link from "next/link";
 import WorkerOnboarding from "@/components/setup/WorkerOnboarding";
+import { useAuth, ProtectedRoute } from "@/lib/auth-context";
+import {
+  technicianApi,
+  portfolioApi,
+  reviewApi,
+  type TechnicianResponse,
+  type PortfolioResponse,
+  type ReviewResponse,
+} from "@/lib/api";
 
-// Custom Icon Components for Tab Consistency
 const ProfileIcon = User;
 const ProjectsIcon = Briefcase;
 const TestimonialsIcon = MessageSquare;
 const SettingsIcon = Settings;
-
-// Mock Data representing the Supabase worker_profiles schema
-const MOCK_PROFILE = {
-  fullName: "Yuvraj Nag",
-  id: "V-99371",
-  role: "Senior HVAC & Refrigeration Specialist",
-  location: "Bangalore, IN (Hybrid)",
-  email: "yuvraj@vero.ai",
-  phone: "+91 98765 43210",
-  bio: "Specializing in commercial facility climate systems, VRF HVAC units, and industrial climate control orchestration. Certified master field-service expert with extensive experience in zero-downtime emergency interventions and diagnostic audits.",
-  industry: "Facility Maintenance & Field Services",
-  experienceYears: 6,
-  currency: "INR (₹)",
-  ratePerDay: 4500,
-  remotePref: "On-site",
-  languages: ["English (Professional)", "Hindi (Fluent)", "Kannada (Fluent)"],
-  skills: ["HVAC Maintenance", "AC Installation", "Industrial Wiring", "System Diagnostics", "Safety Standards", "Solar Integration", "Pipe Maintenance", "Smart Thermostats"],
-  preferredWorkTypes: ["Emergency Support", "Contract-Based"],
-  availableDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  hours: "08:00 - 18:00 (IST)",
-  education: "Diploma in Electrical & HVAC Systems",
-  workHistory: "Previously led commercial field operations at global facilities management enterprise. Supervised and executed 500+ industrial installations and rapid-response emergency electrical wiring support.",
-  links: {
-    github: "credentials.gov/hvac/YN-99371",
-    linkedin: "linkedin.com/in/yuvraj",
-    portfolio: "operations.vero.ai/yuvraj"
-  }
-};
 
 const TABS = [
   { id: "profile", label: "Profile", icon: ProfileIcon },
@@ -52,12 +32,80 @@ const TABS = [
 ];
 
 export default function ProfilePage() {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [isHoveringEdit, setIsHoveringEdit] = useState(false);
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [profile, setProfile] = useState<TechnicianResponse | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [portfolio, setPortfolio] = useState<PortfolioResponse[]>([]);
+  const [reviews, setReviews] = useState<ReviewResponse[]>([]);
+  const [projectForm, setProjectForm] = useState({
+    operation_title: "",
+    scope_of_work: "",
+    technical_role: "",
+    commercial_client: "",
+    completion_year: "",
+    skills: "",
+    proof_image_url: "",
+    registry_verification_url: "",
+    is_featured: false,
+  });
+  const [savingProject, setSavingProject] = useState(false);
+
+  const reloadProfile = () => {
+    technicianApi
+      .me()
+      .then((p) => {
+        setProfile(p);
+        return Promise.all([
+          portfolioApi.list(),
+          reviewApi.forTechnician(p.id),
+        ]);
+      })
+      .then(([entries, revs]) => {
+        setPortfolio(entries);
+        setReviews(revs);
+      })
+      .catch(() => {
+        setProfile(null);
+        setPortfolio([]);
+        setReviews([]);
+      })
+      .finally(() => setProfileLoading(false));
+  };
+
+  useEffect(() => {
+    reloadProfile();
+  }, [user?.id]);
+
+  const displayName = profile?.full_name || user?.full_name || "Worker";
+  const displayRole = profile?.role || user?.role || "Technician";
+  const displayLocation = profile?.location
+    ? `${profile.location}${profile.remote_pref ? ` (${profile.remote_pref})` : ""}`
+    : "\u2014";
+  const hoursLabel =
+    profile?.hours_start && profile?.hours_end
+      ? `${profile.hours_start} - ${profile.hours_end}`
+      : "\u2014";
+  const rateLabel =
+    profile?.daily_rate != null
+      ? `${profile.daily_rate} ${profile.currency || ""}`
+      : "\u2014";
+
+  const bio = profile?.bio || (profileLoading ? "Loading..." : "Complete onboarding to add your bio.");
+  const skills = profile?.skills ?? [];
+  const workHistory = profile?.work_history || profile?.previous_employers || "\u2014";
+  const education = profile?.education || "\u2014";
+  const email = profile?.email || user?.email || "\u2014";
+  const phone = profile?.phone || "\u2014";
+  const linkedin = profile?.linkedin_url || "";
+  const availableDays = profile?.available_days ?? [];
+  const preferredWorkTypes = profile?.preferred_work_types ?? [];
 
   return (
+    <ProtectedRoute>
     <div className="min-h-screen bg-black text-zinc-300 font-sans selection:bg-zinc-800 selection:text-white pb-20">
       
       {/* Top Navigation Anchor */}
@@ -95,33 +143,29 @@ export default function ProfilePage() {
                 className="w-28 h-28 md:w-36 md:h-36 rounded-full border border-zinc-800 bg-zinc-900 flex items-center justify-center relative overflow-hidden group/avatar cursor-pointer"
               >
                 {/* Fallback Initials */}
-                <span className="text-4xl md:text-5xl font-black bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent group-hover/avatar:scale-105 transition-transform duration-500">YN</span>
+                <span className="text-4xl md:text-5xl font-black bg-gradient-to-br from-white to-zinc-500 bg-clip-text text-transparent group-hover/avatar:scale-105 transition-transform duration-500 uppercase">{user?.full_name ? user.full_name.substring(0, 2) : "YN"}</span>
                 
                 {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-300 backdrop-blur-sm">
                   <span className="text-[10px] font-bold uppercase tracking-widest text-white">Update</span>
                 </div>
               </div>
-              
-              {/* Online Status Indicator */}
-              <div className="absolute bottom-3 right-3 w-6 h-6 bg-black rounded-full flex items-center justify-center z-20">
-                <div className="w-4 h-4 bg-emerald-500 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.4)] animate-pulse" />
-              </div>
+              {/* Online Status Indicator Removed */}
             </div>
 
             {/* Name and Basic Details */}
             <div className="pt-2 md:pt-0 md:pb-2">
               <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3">
-                {MOCK_PROFILE.fullName}
+                {displayName}
                 <span className="text-[10px] font-mono bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-0.5 rounded-full uppercase tracking-widest align-middle">
-                  {MOCK_PROFILE.id}
+                  {profile?.id ? profile.id.substring(0, 7) : user?.id?.substring(0, 7) || "\u2014"}
                 </span>
               </h1>
-              <p className="text-sm text-zinc-400 mt-1 font-medium">{MOCK_PROFILE.role}</p>
+              <p className="text-sm text-zinc-400 mt-1 font-medium">{displayRole}</p>
               
               <div className="flex items-center gap-4 mt-3 text-xs text-zinc-500 font-medium">
-                <span className="flex items-center gap-1.5"><MapPin size={12} className="text-zinc-400" /> {MOCK_PROFILE.location}</span>
-                <span className="hidden md:flex items-center gap-1.5"><Clock size={12} className="text-zinc-400" /> {MOCK_PROFILE.hours}</span>
+                <span className="flex items-center gap-1.5"><MapPin size={12} className="text-zinc-400" /> {displayLocation}</span>
+                <span className="hidden md:flex items-center gap-1.5"><Clock size={12} className="text-zinc-400" /> {hoursLabel}</span>
               </div>
             </div>
           </div>
@@ -132,7 +176,7 @@ export default function ProfilePage() {
               onClick={() => { setActiveTab("profile"); setIsEditingProfile(!isEditingProfile); }}
               onMouseEnter={() => setIsHoveringEdit(true)}
               onMouseLeave={() => setIsHoveringEdit(false)}
-              className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+              className="w-full md:w-auto px-6 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 border border-zinc-700/50 shadow-md"
             >
               <Edit2 size={14} className={`transition-transform duration-300 ${isHoveringEdit ? 'rotate-12 scale-110' : ''}`} />
               {isEditingProfile ? "Cancel Edit" : "Edit Profile"}
@@ -178,7 +222,14 @@ export default function ProfilePage() {
             >
               {isEditingProfile ? (
                  <div className="relative w-full h-[600px]">
-                    <WorkerOnboarding onComplete={() => setIsEditingProfile(false)} />
+                    <WorkerOnboarding
+                      mode={profile ? "edit" : "create"}
+                      initialData={profile}
+                      onComplete={() => {
+                        setIsEditingProfile(false);
+                        reloadProfile();
+                      }}
+                    />
                  </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -192,7 +243,7 @@ export default function ProfilePage() {
                     Professional Bio
                   </h3>
                   <p className="text-sm text-zinc-300 leading-relaxed">
-                    {MOCK_PROFILE.bio}
+                    {bio}
                   </p>
                 </div>
 
@@ -203,7 +254,7 @@ export default function ProfilePage() {
                     Technical Arsenal
                   </h3>
                   <div className="flex flex-wrap gap-2">
-                    {MOCK_PROFILE.skills.map((skill, idx) => (
+                    {skills.map((skill, idx) => (
                       <span key={idx} className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-bold text-zinc-300 hover:border-zinc-700 transition-colors cursor-default">
                         {skill}
                       </span>
@@ -223,18 +274,20 @@ export default function ProfilePage() {
                     {/* Mock Experience Item 1 */}
                     <div className="relative pl-8">
                       <div className="absolute left-[7px] top-1 w-2.5 h-2.5 rounded-full bg-zinc-400 border-[3px] border-zinc-950 z-10" />
-                      <h4 className="text-sm font-bold text-white">Senior Integrations Engineer</h4>
-                      <p className="text-[10px] font-mono text-zinc-500 mt-1 uppercase">Stealth AI Startup • 2021 - Present</p>
+                      <h4 className="text-sm font-bold text-white">{profile?.role || displayRole}</h4>
+                      <p className="text-[10px] font-mono text-zinc-500 mt-1 uppercase">
+                        {profile?.industry || "Field Services"} {"\u2022"} {profile?.experience_years ?? 0} yrs exp
+                      </p>
                       <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-                        {MOCK_PROFILE.workHistory}
+                        {workHistory}
                       </p>
                     </div>
 
                     {/* Mock Education Item */}
                     <div className="relative pl-8">
                       <div className="absolute left-[7px] top-1 w-2.5 h-2.5 rounded-full bg-zinc-700 border-[3px] border-zinc-950 z-10" />
-                      <h4 className="text-sm font-bold text-zinc-300">{MOCK_PROFILE.education}</h4>
-                      <p className="text-[10px] font-mono text-zinc-500 mt-1 uppercase">National Institute of Technology • 2017 - 2021</p>
+                      <h4 className="text-sm font-bold text-zinc-300">{education}</h4>
+                      <p className="text-[10px] font-mono text-zinc-500 mt-1 uppercase">Certification / training record</p>
                     </div>
 
                   </div>
@@ -257,7 +310,7 @@ export default function ProfilePage() {
                       <p className="text-[9px] font-bold text-zinc-600 uppercase mb-1">Base Rate</p>
                       <p className="text-sm font-medium text-white flex items-center gap-1.5">
                         <DollarSign size={14} className="text-emerald-500" />
-                        {MOCK_PROFILE.ratePerDay} {MOCK_PROFILE.currency} / Day
+                        {rateLabel} / Day
                       </p>
                     </div>
                     
@@ -266,7 +319,7 @@ export default function ProfilePage() {
                     <div>
                       <p className="text-[9px] font-bold text-zinc-600 uppercase mb-1">Availability</p>
                       <div className="flex flex-wrap gap-1">
-                        {MOCK_PROFILE.availableDays.map((day, idx) => (
+                        {availableDays.map((day, idx) => (
                           <span key={idx} className="text-[10px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-400 px-1.5 py-0.5 rounded">
                             {day}
                           </span>
@@ -280,9 +333,9 @@ export default function ProfilePage() {
                       <p className="text-[9px] font-bold text-zinc-600 uppercase mb-1">Work Configuration</p>
                       <div className="flex gap-2">
                         <span className="text-[10px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-1 rounded-md">
-                          {MOCK_PROFILE.remotePref}
+                          {profile?.remote_pref || "\u2014"}
                         </span>
-                        {MOCK_PROFILE.preferredWorkTypes.map((type, idx) => (
+                        {preferredWorkTypes.map((type, idx) => (
                           <span key={idx} className="text-[10px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-400 px-2 py-1 rounded-md">
                             {type}
                           </span>
@@ -300,13 +353,13 @@ export default function ProfilePage() {
                   </h3>
                   
                   <div className="space-y-3">
-                    <a href={`mailto:${MOCK_PROFILE.email}`} className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-850 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700 transition-colors group">
+                    <a href={`mailto:${email}`} className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-850 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700 transition-colors group">
                       <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-white transition-colors">
                         <Mail size={14} />
                       </div>
                       <div>
                         <p className="text-[9px] font-bold text-zinc-500 uppercase">Email</p>
-                        <p className="text-xs font-medium text-zinc-300">{MOCK_PROFILE.email}</p>
+                        <p className="text-xs font-medium text-zinc-300">{email}</p>
                       </div>
                     </a>
                     
@@ -316,19 +369,19 @@ export default function ProfilePage() {
                       </div>
                       <div>
                         <p className="text-[9px] font-bold text-zinc-500 uppercase">Phone</p>
-                        <p className="text-xs font-medium text-zinc-300">{MOCK_PROFILE.phone}</p>
+                        <p className="text-xs font-medium text-zinc-300">{phone}</p>
                       </div>
                     </div>
 
-                    <a href={`https://${MOCK_PROFILE.links.linkedin}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-850 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700 transition-colors group">
+                    {linkedin ? <a href={linkedin.startsWith("http") ? linkedin : `https://${linkedin}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 p-2.5 rounded-xl border border-zinc-850 bg-zinc-900/50 hover:bg-zinc-900 hover:border-zinc-700 transition-colors group">
                       <div className="w-8 h-8 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-blue-400 transition-colors">
                         <Globe size={14} />
                       </div>
                       <div>
                         <p className="text-[9px] font-bold text-zinc-500 uppercase">LinkedIn</p>
-                        <p className="text-xs font-medium text-zinc-300">{MOCK_PROFILE.links.linkedin}</p>
+                        <p className="text-xs font-medium text-zinc-300">{linkedin}</p>
                       </div>
-                    </a>
+                    </a> : null}
                   </div>
                 </div>
 
@@ -357,23 +410,39 @@ export default function ProfilePage() {
                 
                 <button 
                   onClick={() => setIsAddProjectOpen(true)}
-                  className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-colors"
+                  className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white font-bold text-xs uppercase tracking-wider flex items-center gap-2 transition-all border border-zinc-700/50 shadow-md"
                 >
                   <Plus size={14} />
                   Add Assignment
                 </button>
               </div>
 
-              {/* Empty State / Grid Placeholder */}
-              <div className="w-full rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-12 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
-                  <Briefcase size={24} />
+              {portfolio.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {portfolio.map((entry) => (
+                    <div key={entry.id} className="p-5 rounded-2xl border border-zinc-800 bg-zinc-950/50">
+                      <h4 className="text-sm font-bold text-white">{entry.operation_title}</h4>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        {entry.technical_role || "Technician"}
+                        {entry.commercial_client ? ` · ${entry.commercial_client}` : ""}
+                      </p>
+                      {entry.scope_of_work && (
+                        <p className="text-xs text-zinc-400 mt-3 line-clamp-3">{entry.scope_of_work}</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <h4 className="text-sm font-bold text-zinc-300">No assignments added yet</h4>
-                <p className="text-xs text-zinc-500 mt-2 max-w-[280px]">
-                  Document your field operations to increase your platform match rate with leading industrial and commercial clients.
-                </p>
-              </div>
+              ) : (
+                <div className="w-full rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-12 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
+                    <Briefcase size={24} />
+                  </div>
+                  <h4 className="text-sm font-bold text-zinc-300">No assignments added yet</h4>
+                  <p className="text-xs text-zinc-500 mt-2 max-w-[280px]">
+                    Document your field operations to increase your platform match rate.
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -393,15 +462,31 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="w-full rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-16 flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
-                  <MessageSquare size={24} />
+              {reviews.length > 0 ? (
+                <div className="space-y-4">
+                  {reviews.map((r) => (
+                    <div key={r.id} className="p-5 rounded-2xl border border-zinc-800 bg-zinc-950/50">
+                      <div className="flex items-center gap-2">
+                        <Star size={14} className="text-amber-400 fill-amber-400" />
+                        <span className="text-sm font-bold text-white">{r.rating}/5</span>
+                      </div>
+                      {r.review_text && (
+                        <p className="text-xs text-zinc-400 mt-2">{r.review_text}</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <h4 className="text-sm font-bold text-zinc-300">No endorsements yet</h4>
-                <p className="text-xs text-zinc-500 mt-2 max-w-[320px]">
-                  Complete active service assignments through the platform to receive verified endorsements from commercial clients.
-                </p>
-              </div>
+              ) : (
+                <div className="w-full rounded-2xl border border-zinc-800 border-dashed bg-zinc-950/30 p-16 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mb-4">
+                    <MessageSquare size={24} />
+                  </div>
+                  <h4 className="text-sm font-bold text-zinc-300">No endorsements yet</h4>
+                  <p className="text-xs text-zinc-500 mt-2 max-w-[320px]">
+                    Complete assignments to receive client reviews.
+                  </p>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -442,7 +527,7 @@ export default function ProfilePage() {
                 
                 <div>
                   <label className="block text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Scope of Work</label>
-                  <textarea placeholder="Specify the technical challenges resolved, service checklist completed, and materials utilized…" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors min-h-[100px] resize-y" />
+                  <textarea placeholder="Specify the technical challenges resolved, service checklist completed, and materials utilizedâ€¦" className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-colors min-h-[100px] resize-y" />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -495,7 +580,7 @@ export default function ProfilePage() {
                 </button>
                 <button 
                   onClick={() => setIsAddProjectOpen(false)}
-                  className="px-6 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black text-xs font-bold transition-colors shadow-lg"
+                  className="px-6 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-colors border border-zinc-700/50 shadow-md"
                 >
                   Save Assignment
                 </button>
@@ -506,5 +591,6 @@ export default function ProfilePage() {
       </AnimatePresence>
 
     </div>
+    </ProtectedRoute>
   );
 }

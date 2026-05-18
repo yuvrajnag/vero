@@ -57,3 +57,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Scratch and temp files
+/find_history.py
+/reconstruct.py
+/recovered.tsx
+/patches.txt
+
+# Local uploads and assets
+backend/uploads/
